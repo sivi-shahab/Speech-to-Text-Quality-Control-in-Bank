@@ -70,3 +70,7 @@ server.py
 sendiri (mis. dari script batch/testing) tanpa perlu spin up FastAPI app.
 
 
+## Ganti backend
+ASR_BACKEND=whisper
+
+

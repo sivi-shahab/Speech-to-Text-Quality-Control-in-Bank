@@ -1,0 +1,37 @@
+# =================================================================
+# Speech STT Service — requirements.txt
+# =================================================================
+
+# ── Server ──
+fastapi>=0.110
+uvicorn[standard]>=0.29
+gunicorn>=21.2
+python-multipart>=0.0.9
+python-dotenv>=1.0
+
+# ── ASR default (Whisper) ──
+faster-whisper>=1.0
+torch>=2.1
+soundfile>=0.12
+librosa>=0.10
+scipy>=1.11
+numpy>=1.24
+
+# ── Diarization default (pyannote) ──
+pyannote.audio>=3.1
+
+# ── Emotion detection (audeering/wav2vec2) ──
+transformers>=4.40
+
+# ── Database, PDF, webhook, HTTP ──
+psycopg2-binary>=2.9
+reportlab>=4.0
+requests>=2.31
+
+# =================================================================
+# OPSIONAL — install manual sesuai kebutuhan, atau lewat build arg
+# Dockerfile (INSTALL_ELEVENLABS / INSTALL_NEMO), TIDAK di-install
+# default supaya image tetap ramping kalau tidak dipakai.
+# =================================================================
+# elevenlabs>=1.0                  # ASR_BACKEND=elevenlabs
+# nemo_toolkit[asr]>=1.23          # DIARIZATION_BACKEND=nemo

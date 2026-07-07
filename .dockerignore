@@ -1,0 +1,34 @@
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+venv/
+
+# Environment & secrets — JANGAN PERNAH ikut ke image
+.env
+.env.*
+!.env.example
+
+# Folder fine-tuning — proyek terpisah, tidak perlu ikut image serving
+finetune_asr/
+
+# Model cache lokal (kalau ada) — sebaiknya lewat volume mount, bukan di-bake ke image
+*.nemo
+*.ckpt
+*.pt
+*.bin
+
+# Dokumentasi & file kerja lokal — tidak perlu di image
+README*.md
+*.log
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/

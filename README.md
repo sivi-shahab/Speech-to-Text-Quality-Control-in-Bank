@@ -69,15 +69,4 @@ server.py
 `routes/` (lihat `tempfiles.py`) — supaya engine STT bisa dipakai berdiri
 sendiri (mis. dari script batch/testing) tanpa perlu spin up FastAPI app.
 
-## Cara pasang ke project asli
 
-1. Timpa `speech_routes.py` lama dengan `routes/speech_routes.py` baru.
-2. Tambahkan folder `routes/diagnostics_routes.py`, `routes/webhook_callback_routes.py`.
-3. Tambahkan seluruh folder `services/`.
-4. Hapus `model/speech_stt.py` (file lama), ganti dengan folder `model/speech_stt/` (package baru).
-5. Timpa `server.py` lama dengan yang baru.
-6. `utils/vars.py` dan `utils/pdf_builder.py` — tidak perlu diubah (sudah sama).
-7. Jalankan `python -m py_compile` di semua file dulu untuk sanity check di environment Anda, lalu smoke-test dengan 1 file audio nyata sebelum deploy production.
-
-Tidak ada perubahan env var, endpoint path, request/response schema, atau
-model checkpoint yang dibutuhkan.

@@ -31,6 +31,7 @@ urutan cleanup, dan kondisi error masing-masing dipertahankan persis.
 import os
 import logging
 import tempfile
+from text_normalization import normalize_transcript_text_safe
 import traceback
 from pathlib import Path
 from typing import Optional
@@ -218,18 +219,35 @@ class STTJobPipeline:
                         self.job_id, e,
                     )
 
+            # ── Normalisasi angka untuk teks TAMPILAN (PDF) ──
+            # HANYA memengaruhi teks yang di-render ke PDF. `transcribed_text`
+            # ASLI (tidak dinormalisasi) tetap diteruskan ke deliver_result()
+            # di bawah -- branch lain (RegisterResultStrategy,
+            # UploadTranscriptStrategy) TIDAK terpengaruh sama sekali.
+            # Gagal (network/API/timeout) -> fallback otomatis ke
+            # transcribed_text asli (lihat normalize_transcript_text_safe),
+            # TIDAK PERNAH menggagalkan job. Toggle via env TEXT_NORM_ENABLED
+            # (default OFF -- nyalakan setelah divalidasi dengan API key +
+            # transkrip nyata, lihat catatan di text_normalization.py).
+            display_text = transcribed_text
+            if os.getenv("TEXT_NORM_ENABLED", "false").lower() in ("1", "true", "yes"):
+                logger.info("[JOB:%s] Normalisasi angka transkrip (GPT-5.4-mini)...", self.job_id)
+                display_text = normalize_transcript_text_safe(transcribed_text)
+                if display_text != transcribed_text:
+                    logger.info("[JOB:%s] Normalisasi berhasil, teks PDF diperbarui.", self.job_id)
+
             # ── Build PDF ──
             logger.info("[JOB:%s] Membuat PDF...", self.job_id)
             try:
                 pdf_buffer = create_transcription_pdf(
-                    transcribed_text, self.original_filename, metadata=metadata
+                    display_text, self.original_filename, metadata=metadata
                 )
             except Exception as pdf_err:
                 logger.warning(
                     "[JOB:%s] PDF gagal (%s), retry tanpa metadata.",
                     self.job_id, pdf_err,
                 )
-                pdf_buffer = create_transcription_pdf(transcribed_text, self.original_filename)
+                pdf_buffer = create_transcription_pdf(display_text, self.original_filename)
 
             with tempfile.NamedTemporaryFile(
                 suffix=".pdf",

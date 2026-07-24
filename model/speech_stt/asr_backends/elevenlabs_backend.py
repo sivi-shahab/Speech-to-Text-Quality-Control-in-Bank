@@ -13,62 +13,34 @@ kata), jadi TIDAK PERLU pyannote/NeMo/alignment heuristik sama sekali
 Data audio dikirim ke server ElevenLabs (cloud, region resmi yang
 dipublikasikan: EU & India — TIDAK ada region Indonesia). Untuk data
 nasabah bank, ini WAJIB disetujui tim legal/compliance dulu (UU PDP,
-regulasi OJK) sebelum dipakai untuk data produksi asli. `load()` di
-bawah SENGAJA memvalidasi API key dengan pesan yang mengingatkan hal
-ini — tapi validasi compliance itu sendiri ada di LUAR kode ini,
-tanggung jawab operator yang men-deploy.
+regulasi OJK) sebelum dipakai untuk data produksi asli.
 
-── SKEMA RESPONSE ASLI (dikonfirmasi dari sample JSON nyata, BUKAN lagi
-asumsi) ──
-    {
-      "language_code": "ind",
-      "segments": [
-        {
-          "text": "Halo selamat sore dengan Ibu Suliana? ",
-          "start_time": 3.86, "end_time": 7.38,
-          "speaker": {"id": "speaker_0", "name": "Speaker 0"},
-          "words": [
-            {"text": "Halo", "start_time": 3.86, "end_time": 4.04},
-            {"text": " ",    "start_time": 4.04, "end_time": 4.5},
-            ...
-          ]
-        },
-        ...
-      ]
-    }
-
-Perbedaan dari asumsi awal (draft pertama modul ini):
-  - Top-level key adalah `segments`, BUKAN `words` flat.
-  - Tiap SEGMEN sudah berisi speaker + teks lengkap + start_time/end_time
-    — ElevenLabs SENDIRI yang sudah menggabungkan kata jadi giliran-bicara
-    per speaker. Tidak perlu rekonstruksi manual (_merge_words_by_speaker
-    versi lama DIHAPUS, sudah tidak relevan).
-  - `words[]` cuma nested di dalam tiap segmen (dipakai HANYA untuk mode
-    simple/non-diarization yang butuh word-level timestamp), bukan
-    struktur utama untuk mode diarization.
-  - Field waktu namanya `start_time`/`end_time`, BUKAN `start`/`end`.
-  - `speaker` adalah OBJEK `{"id":..., "name":...}`, bukan string flat.
-  - Tidak ada field `type` untuk membedakan entri kata vs spasi — entri
-    spasi punya `text=" "` dan otomatis ke-filter oleh `.strip()`.
-
-Beda arsitektural lain dari backend lain:
-- Tidak ada model berat yang perlu dimuat ke GPU/VRAM — cuma HTTP client
-  ringan. Makanya TIDAK ada Factory/shared-loading di model_registry.py
-  untuk backend ini (beda dari whisper).
-- `supports_word_timestamps = True` TAPI `provides_own_diarization = True`
-  juga — engine.py mengecek flag kedua ini LEBIH DULU, jadi jalur
-  alignment kata (pure-overlap) maupun jalur per-segmen (ala MERaLiON)
-  SAMA SEKALI tidak dipakai untuk backend ini; speaker label sudah final
-  dari API, langsung per-segmen.
+[CONCURRENCY] Langganan ElevenLabs dibatasi MAKS 12 request paralel; kalau
+terlampaui API balas HTTP 429 (concurrent_limit_exceeded). Modul ini
+membatasi konkurensi via semaphore (default 8) + retry backoff saat 429 —
+lihat _ELEVEN_SEM / _call_api. Semaphore ini PER-PROSES; kalau STT jalan di
+banyak proses, atur ELEVENLABS_MAX_CONCURRENCY supaya (jumlah_proses ×
+nilai) <= ~10.
 """
-
 import logging
+import os
+import time
+import threading
 from typing import Any, Dict, List, Optional, Tuple
+
+from elevenlabs.core.api_error import ApiError
 
 from model.speech_stt.asr_backends.base import ASRBackend
 from model.speech_stt.config import AGENT_SPEAKER_LABEL, CUSTOMER_SPEAKER_LABEL
 
 logger = logging.getLogger(__name__)
+
+# --- Batas konkurensi ElevenLabs (limit langganan = 12; sisakan headroom) ---
+# Semaphore membatasi jumlah panggilan convert() yang jalan bersamaan DALAM
+# proses ini. Retry backoff menangani 429 saat limit tetap terlampaui (mis.
+# karena proses lain). Keduanya bisa diatur via env.
+_ELEVEN_SEM = threading.Semaphore(int(os.getenv("ELEVENLABS_MAX_CONCURRENCY", "5")))
+_ELEVEN_RETRIES = int(os.getenv("ELEVENLABS_429_RETRIES", "15"))
 
 
 class _ElevenLabsWord:
@@ -145,10 +117,11 @@ class ElevenLabsBackend(ASRBackend):
         from elevenlabs.client import ElevenLabs
         self._client = ElevenLabs(api_key=self.api_key)
         logger.info(
-            "[ElevenLabs] Client siap (model=%s, num_speakers=%d). "
+            "[ElevenLabs] Client siap (model=%s, num_speakers=%d, max_concurrency=%s). "
             "Audio akan dikirim ke cloud ElevenLabs — pastikan sudah "
             "disetujui compliance untuk data produksi.",
             self.model_id, self.num_speakers,
+            os.getenv("ELEVENLABS_MAX_CONCURRENCY", "8"),
         )
 
     def is_available(self) -> bool:
@@ -156,6 +129,12 @@ class ElevenLabsBackend(ASRBackend):
 
     # -----------------------------------------------------------------
     def _call_api(self, audio_path: str, language: str, diarize: bool):
+        """Panggil ElevenLabs convert() dengan:
+          - cap konkurensi (semaphore _ELEVEN_SEM) supaya tak menembus limit 12,
+          - retry backoff saat HTTP 429 (concurrent_limit_exceeded),
+          - fallback param minimal saat SDK menolak parameter (TypeError).
+        Slot semaphore DILEPAS sebelum tidur retry supaya job lain bisa jalan.
+        """
         with open(audio_path, "rb") as f:
             kwargs: Dict[str, Any] = dict(
                 file             = f,
@@ -168,21 +147,45 @@ class ElevenLabsBackend(ASRBackend):
                 kwargs["keyterms"] = self.keyterms[:1000]
             if diarize and self.num_speakers:
                 kwargs["num_speakers"] = self.num_speakers
-            try:
-                return self._client.speech_to_text.convert(**kwargs)
-            except TypeError as e:
-                # Fallback defensif — param num_speakers/keyterms/tag_audio_events
-                # bisa saja beda nama/tidak ada di versi SDK tertentu. Skema resmi
-                # bisa berubah antar rilis; ini best-effort, BUKAN jaminan.
-                logger.warning(
-                    "[ElevenLabs] Parameter API tidak dikenali SDK (%s), "
-                    "retry dengan parameter minimal.", e,
-                )
-                f.seek(0)
-                return self._client.speech_to_text.convert(
-                    file=f, model_id=self.model_id,
-                    language_code=language, diarize=diarize,
-                )
+
+            wait = 0
+            for attempt in range(_ELEVEN_RETRIES):
+                f.seek(0)                       # reset file tiap percobaan
+                _ELEVEN_SEM.acquire()           # cap konkurensi
+                try:
+                    try:
+                        return self._client.speech_to_text.convert(**kwargs)
+                    except TypeError as e:
+                        # Fallback defensif — param num_speakers/keyterms/
+                        # tag_audio_events bisa beda nama/tidak ada di versi SDK
+                        # tertentu. Best-effort, BUKAN jaminan.
+                        logger.warning(
+                            "[ElevenLabs] Parameter API tidak dikenali SDK (%s), "
+                            "retry dengan parameter minimal.", e,
+                        )
+                        f.seek(0)
+                        return self._client.speech_to_text.convert(
+                            file=f, model_id=self.model_id,
+                            language_code=language, diarize=diarize,
+                        )
+                except ApiError as e:
+                    # 429 concurrent_limit -> tunggu lalu retry; error lain -> lempar.
+                    if e.status_code != 429:
+                        raise
+                    wait = min(2 ** attempt, 30)   # 1,2,4,8,16,30
+                    logger.warning(
+                        "[ElevenLabs] 429 concurrent_limit — retry %d/%d dalam %ss",
+                        attempt + 1, _ELEVEN_RETRIES, wait,
+                    )
+                finally:
+                    _ELEVEN_SEM.release()          # LEPAS slot sebelum tidur
+                time.sleep(wait)
+
+            raise RuntimeError(
+                "[ElevenLabs] Gagal setelah retry: 429 concurrent_limit "
+                "(kurangi konkurensi via ELEVENLABS_MAX_CONCURRENCY, kurangi "
+                "jumlah transcribe paralel di sumbernya, atau upgrade langganan)."
+            )
 
     @staticmethod
     def _response_to_dict(response) -> Dict[str, Any]:
@@ -190,10 +193,7 @@ class ElevenLabsBackend(ASRBackend):
         [NEW] Konversi response SDK ElevenLabs (biasanya Pydantic model)
         jadi dict biasa yang JSON-serializable, untuk disimpan ke DB apa
         adanya. Coba beberapa method berbeda karena versi SDK bisa beda
-        konvensi (Pydantic v2 pakai model_dump(), v1 pakai dict()) — ini
-        BELUM divalidasi terhadap SDK asli (butuh API key asli untuk tes),
-        jadi sengaja dibuat defensif dengan fallback berlapis, bukan
-        asumsi satu method pasti benar.
+        konvensi (Pydantic v2 pakai model_dump(), v1 pakai dict()).
         """
         for method_name in ("model_dump", "dict", "to_dict"):
             method = getattr(response, method_name, None)
@@ -203,8 +203,7 @@ class ElevenLabsBackend(ASRBackend):
                 except Exception:
                     continue
         # Fallback terakhir: coba serialize langsung, kalau gagal simpan
-        # representasi string apa adanya (tidak fatal, cuma kurang berguna
-        # buat query JSONB nanti).
+        # representasi string apa adanya.
         try:
             import json
             return json.loads(json.dumps(response, default=lambda o: getattr(o, "__dict__", str(o))))
@@ -227,9 +226,7 @@ class ElevenLabsBackend(ASRBackend):
         """
         Ekstrak {"id":..., "name":...} dari field `speaker` satu segmen.
         Dipakai bersama oleh transcribe_full() (mode simple) DAN
-        transcribe_with_speakers() (mode diarization) — field ini selalu
-        ada di response Scribe v2 (dikonfirmasi dari sample nyata),
-        terlepas dari parameter `diarize` yang dikirim.
+        transcribe_with_speakers() (mode diarization).
         """
         speaker_obj = getattr(seg, "speaker", None)
         if speaker_obj is None:
@@ -241,56 +238,34 @@ class ElevenLabsBackend(ASRBackend):
     @staticmethod
     def _positional_speaker_label(speaker_id: Optional[str], speaker_name: Optional[str]) -> str:
         """
-        [NEW] Pemetaan POSISIONAL khusus ElevenLabs: speaker ke-0 (index
-        pertama) -> AGENT_SPEAKER_LABEL, speaker ke-1 -> CUSTOMER_SPEAKER_LABEL.
-
-        ⚠️ BEDA dari map_speakers_to_binary() (dipakai backend lain) yang
-        menentukan Agent berdasarkan SIAPA BICARA PALING LAMA. Ini murni
-        berdasarkan URUTAN speaker_id dari ElevenLabs ("speaker_0",
-        "speaker_1", dst) — TIDAK dijamin selalu benar kalau ternyata
-        customer yang kebetulan diberi index 0 oleh API. Dipakai di sini
-        HANYA karena diminta eksplisit khusus untuk backend ElevenLabs.
-
-        Kalau ada speaker ke-3+ (>2 speaker terdeteksi — jarang untuk
-        telemarketing 1-lawan-1), fallback ke speaker_name/speaker_id asli
-        alih-alih memaksakan salah satu dari 2 label itu.
+        [NEW] Pemetaan POSISIONAL khusus ElevenLabs: speaker ke-0 ->
+        AGENT_SPEAKER_LABEL, speaker ke-1 -> CUSTOMER_SPEAKER_LABEL.
+        ⚠️ Murni berdasarkan URUTAN speaker_id ("speaker_0", "speaker_1"),
+        TIDAK dijamin benar kalau customer kebetulan index 0. >2 speaker ->
+        fallback ke nama/id asli.
         """
         idx = None
         if speaker_id:
-            # ekstrak angka dari akhir "speaker_0", "speaker_1", dst
             tail = speaker_id.rsplit("_", 1)[-1]
             if tail.isdigit():
                 idx = int(tail)
-
         if idx == 0:
             return AGENT_SPEAKER_LABEL
         elif idx == 1:
             return CUSTOMER_SPEAKER_LABEL
         else:
-            # >2 speaker atau index tidak terbaca — jangan menebak, kembalikan asli
             return speaker_name or speaker_id or "unknown"
 
     @staticmethod
     def _extract_segments_with_speaker(response) -> List[Dict[str, Any]]:
         """
         [FIXED] Ekstrak segmen speaker dari response Scribe v2 (diarize=True).
-
-        Dua test nyata terhadap API (dikonfirmasi user) menunjukkan skema
-        respons SEBENARNYA adalah flat "words[]" di top-level (SAMA seperti
-        diarize=False), bukan "segments[]" bersarang seperti asumsi awal
-        (sample yang dipakai sebelumnya kemungkinan tidak representatif
-        untuk versi API/SDK yang sebenarnya dipakai). Bedanya cuma:
-        diarize=False -> speaker_id null di semua kata,
-        diarize=True  -> speaker_id terisi ("speaker_0", dst) per kata.
-
-        Coba DUA jalur (fail-safe, bukan tebak salah satu):
-          1. response.segments (kalau ternyata ADA di versi SDK Anda)
+        Coba DUA jalur (fail-safe):
+          1. response.segments (kalau ada di versi SDK Anda)
           2. Fallback: response.words flat, group kata berurutan yang
-             speaker_id-nya SAMA jadi 1 segmen (persis draft PALING AWAL
-             kode ini sebelum "disederhanakan" — ternyata itu yang benar).
+             speaker_id-nya SAMA jadi 1 segmen.
         """
         segments = []
-
         # Jalur 1: segments[] bersarang (kalau ada)
         for seg in (getattr(response, "segments", None) or []):
             text  = (getattr(seg, "text", "") or "").strip()
@@ -308,9 +283,7 @@ class ElevenLabsBackend(ASRBackend):
         if segments:
             return segments
 
-        # Jalur 2 (FALLBACK, terbukti dari 2 test nyata): flat words[]
-        # dengan speaker_id per-kata. Group kata berurutan speaker sama
-        # jadi 1 segmen.
+        # Jalur 2 (FALLBACK): flat words[] dengan speaker_id per-kata.
         words_raw = getattr(response, "words", None) or []
         current_speaker = None
         current_start = None
@@ -337,17 +310,14 @@ class ElevenLabsBackend(ASRBackend):
             speaker_id = getattr(w, "speaker_id", None)
             if not text or start is None or end is None:
                 continue
-
             if speaker_id != current_speaker and current_text_parts:
                 _flush()
                 current_text_parts = []
-
             if not current_text_parts:
                 current_start = start
                 current_speaker = speaker_id
             current_end = end
             current_text_parts.append(text)
-
         _flush()
         return segments
 
@@ -357,9 +327,8 @@ class ElevenLabsBackend(ASRBackend):
         num_speakers: int = 2,
     ) -> List[Dict[str, Any]]:
         response = self._call_api(audio_path, language, diarize=True)
-        # [NEW] Simpan response MENTAH (sebelum di-transform jadi segments
-        # internal) — dipakai caller (engine.py) untuk disisipkan ke
-        # metadata, lalu disimpan ke DB apa adanya oleh services/db.py.
+        # [NEW] Simpan response MENTAH (sebelum di-transform) — dipakai caller
+        # (engine.py) untuk disisipkan ke metadata lalu disimpan ke DB.
         self.last_raw_response = self._response_to_dict(response)
         return self._extract_segments_with_speaker(response)
 
@@ -369,15 +338,12 @@ class ElevenLabsBackend(ASRBackend):
     ) -> List["_ElevenLabsSegment"]:
         """
         [FIXED] Kelompokkan flat words[] jadi segmen per-kalimat PAKAI
-        TIMESTAMP ASLI dari tiap kata — bukan character-proportional
-        guessing seperti sebelumnya. Pecah di akhir kalimat (. ? !) atau
-        kalau sudah melebihi max_duration_sec (biar tidak ada 1 segmen
-        yang terlalu panjang kalau tidak ada tanda baca sama sekali).
+        TIMESTAMP ASLI tiap kata. Pecah di akhir kalimat (. ? !) atau saat
+        melebihi max_duration_sec.
         """
         segments = []
         current_words: List["_ElevenLabsWord"] = []
         current_text_parts: List[str] = []
-
         for w in words:
             current_words.append(w)
             current_text_parts.append(w.word)
@@ -393,8 +359,6 @@ class ElevenLabsBackend(ASRBackend):
                     ))
                 current_words = []
                 current_text_parts = []
-
-        # Sisa kata yang belum ke-flush (kalimat terakhir tanpa tanda baca)
         if current_words:
             text = " ".join(current_text_parts).strip()
             if text:
@@ -410,17 +374,9 @@ class ElevenLabsBackend(ASRBackend):
         response = self._call_api(audio_path, language, diarize=False)
         # [NEW] Simpan raw response — dipakai save_stt_pipeline_results().
         self.last_raw_response = self._response_to_dict(response)
-
-        # [FIXED] Skema response untuk diarize=False TERNYATA beda TOTAL
-        # dari diarize=True — dikonfirmasi dari response API asli (bukan
-        # asumsi lagi). TIDAK ADA key "segments" sama sekali; struktur
-        # sebenarnya FLAT: {"text": ..., "words": [...]} di top-level,
-        # tiap word punya {"start","end","text","type","speaker_id"}
-        # (speaker_id selalu null di mode ini, karena diarize=False).
-        # Kode SEBELUMNYA salah asumsi ada "segments" (pola dari respons
-        # diarize=True), sehingga selalu jatuh ke fallback 1-segmen-raksasa
-        # + tebak-tebak proporsional — BUKAN pakai timestamp asli yang
-        # sebenarnya tersedia persis di sini.
+        # [FIXED] Skema diarize=False FLAT: {"text":..., "words":[...]} di
+        # top-level; tiap word punya {"start","end","text","type","speaker_id"}
+        # (speaker_id selalu null di mode ini).
         words: List[_ElevenLabsWord] = []
         for w in (getattr(response, "words", None) or []):
             wtype = getattr(w, "type", None)
@@ -431,13 +387,11 @@ class ElevenLabsBackend(ASRBackend):
             end   = getattr(w, "end", None)
             if text.strip() and start is not None and end is not None:
                 words.append(_ElevenLabsWord(float(start), float(end), text))
-
         if words:
             segments = self._group_words_into_sentences(words)
         else:
-            # Fallback terakhir kalau ternyata words[] juga kosong/tidak
-            # terduga — pakai audio_duration_secs (field asli response
-            # ini) atau baca file audio langsung kalau itu pun tidak ada.
+            # Fallback kalau words[] kosong — pakai audio_duration_secs atau
+            # baca durasi file audio langsung.
             duration = getattr(response, "audio_duration_secs", None)
             if duration is None:
                 import soundfile as sf
@@ -447,13 +401,8 @@ class ElevenLabsBackend(ASRBackend):
                     duration = 0.0
             full_text = getattr(response, "text", "") or ""
             segments = [_ElevenLabsSegment(0.0, float(duration), full_text, [])]
-
-        # Catatan: response.language_code memakai ISO 639-3 (mis. "ind"),
-        # sedangkan parameter `language` yang dikirim biasanya ISO 639-1
-        # ("id") — dua konvensi berbeda. Dibiarkan apa adanya (bukan
-        # dikonversi paksa) supaya tidak menebak-nebak mapping yang belum
-        # divalidasi; hanya relevan untuk field informational, tidak
-        # mempengaruhi hasil transkrip.
+        # response.language_code ISO 639-3 ("ind") vs param language ISO 639-1
+        # ("id") — dibiarkan apa adanya (hanya informational).
         detected_language = getattr(response, "language_code", None) or language
         info = _ElevenLabsInfo(language=detected_language, language_probability=1.0)
         return segments, info

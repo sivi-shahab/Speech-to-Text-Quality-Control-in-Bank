@@ -146,7 +146,11 @@ app.include_router(
 )
 app.include_router(diagnostics_routes.router, tags=["diagnostics"])
 app.include_router(webhook_callback_routes.router, tags=["webhook"])
-
+# [PINDAH] campaign_routes & recording_routes sudah dipindah ke
+# lightweight_server.py (port 8002) -- lihat catatan di sana. Endpoint
+# /campaign/cashline-ntb dan /recording/tms-cashline TIDAK LAGI ada di
+# server.py ini (port 8000/8001), supaya tidak antre di belakang proses
+# transkripsi STT yang berat (masalah "Read timed out" yang berulang).
 
 # =================================================================
 # Entry Point — DEV only

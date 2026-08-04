@@ -186,7 +186,7 @@ def get_dynamic_prompt_from_db(ticket_id: str) -> Optional[str]:
                     FROM dashboard.recording_tms_api
                     WHERE tiket_id = %s 
                     AND DATE(load_date) = CURRENT_DATE - INTERVAL '1 day'
-                    AND processed_at IS NOT NUL;
+                    AND processed_at IS NUL;
                 """
                 cursor.execute(query, (ticket_id,))
                 result = cursor.fetchone()
@@ -402,7 +402,7 @@ _RECORDING_TMS_SQL = """
            recording_created_time, a_number, context, source_api, load_date,
            status_data, error_message, inserted_at, processed_at
     FROM dashboard.recording_tms_api
-    WHERE load_date::date = CURRENT_DATE - INTERVAL '2 day'
+    WHERE load_date::date = CURRENT_DATE - INTERVAL '1 day'
     AND processed_at IS NOT NULL
       AND context = %s AND campaign in ('CLENB', 'CLENTB')
     ORDER BY tiket_id;

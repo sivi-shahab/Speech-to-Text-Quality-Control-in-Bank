@@ -7,7 +7,7 @@ data customer terkait (dashboard.current_cc_scmcustp) — dipanggil
 BERURUTAN karena query kedua butuh field "no-ktpkitas" dari hasil query
 pertama sebagai kunci pencarian.
 
-[NEW] 2 lapis cache untuk data terfilter (48 field):
+[NEW] 2 lapis cache untuk data terfilter (50 field):
   L1 Redis     -- cepat, TTL 1 hari, best-effort (lihat services/redis_cache.py)
   L2 Postgres  -- permanen, dashboard."cashline-ntb-asscend" (lihat services/db.py)
 
@@ -46,7 +46,7 @@ async def get_cashline_ntb_with_customer(result_id: str):
     "no-ktpkitas" dari hasil itu untuk ambil data customer terkait.
 
     [NEW] Setelah berhasil ambil data, otomatis simpan versi terfilter
-    (48 field) ke Postgres (L2) DAN Redis (L1) sekaligus -- kegagalan
+    (50 field) ke Postgres (L2) DAN Redis (L1) sekaligus -- kegagalan
     simpan cache (salah satu/keduanya) TIDAK menggagalkan response ini
     (cuma di-log).
 
@@ -103,7 +103,7 @@ async def get_cashline_ntb_with_customer(result_id: str):
 @router.get("/campaign/cashline-ntb-asscend/{result_id}")
 async def get_cashline_ntb_asscend_cached(result_id: str):
     """
-    [NEW] Baca data dari CACHE (48 field terpilih), TANPA panggil DWH API
+    [NEW] Baca data dari CACHE (50 field terpilih), TANPA panggil DWH API
     sama sekali. 2 lapis:
       1. Redis (L1) -- kalau hit, ini yang PALING cepat (dalam memori).
       2. Postgres (L2) -- kalau Redis miss, coba tabel
@@ -116,7 +116,7 @@ async def get_cashline_ntb_asscend_cached(result_id: str):
 
     Response:
         {
-            "cashline": {...30 field terpilih...} atau null,
+            "cashline": {...32 field terpilih...} atau null,
             "customer": {...18 field terpilih...} atau null,
             "cached_at": "2026-07-20T12:34:56+00:00" (null kalau dari Redis)
         }

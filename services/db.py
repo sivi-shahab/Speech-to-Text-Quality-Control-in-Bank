@@ -504,19 +504,25 @@ def save_stt_pipeline_results(
     finally:
         if conn:
             db_pool.putconn(conn)# ---------------------------------------------------------------------------
-# [NEW] Cache cashline+customer (Ascend) -- cuma 48 field yang App B pakai
-# (30 cashline + 18 customer), disimpan sebagai JSONB di
+# [NEW] Cache cashline+customer (Ascend) -- cuma 50 field yang App B pakai
+# (32 cashline + 18 customer), disimpan sebagai JSONB di
 # dashboard."cashline-ntb-asscend". Diisi setiap kali
 # /campaign/cashline-ntb/{result_id} dipanggil (upsert), dibaca lewat
 # endpoint terpisah /campaign/cashline-ntb-asscend/{result_id} untuk
 # akses cepat tanpa panggil DWH API lagi.
 # ---------------------------------------------------------------------------
 
-# 30 field cashline yang benar-benar dipakai App B (reference_data.py,
-# crud.get_tms_cashline_change_flags). Field DI LUAR daftar ini SENGAJA
-# tidak disimpan -- kalau nanti App B butuh field baru, tambahkan di sini.
+# 32 field cashline yang benar-benar dipakai App B (reference_data.py,
+# crud.get_tms_cashline_change_flags, routers/agent_error.py). Field DI LUAR
+# daftar ini SENGAJA tidak disimpan -- kalau nanti App B butuh field baru,
+# tambahkan di sini.
 _ASSCEND_CASHLINE_FIELDS = [
     "cust_name",
+    # Agent Error Summary (App B routers/agent_error.py + api/sales_lookup.py):
+    # agent_id -> kolom Agent ID/Agent Name, submit_time -> kolom Tanggal DAN
+    # basis hitung new joiner / durasi bergabung. Tanpa keduanya di cache,
+    # endpoint cache-first bikin kolom-kolom itu kosong walau datanya ada di DWH.
+    "agent_id", "submit_time",
     "nominal-transfer", "nama-bank", "tenor", "cicilan-per-bulan",
     "admin-fee", "nomor-rekening", "nama-di-rekening",
     "alamat-kantor-1-new", "alamat-kantor-2-new", "kantor-rt-new", "kantor-rw-new",
@@ -585,7 +591,7 @@ def save_cashline_ntb_asscend_cache(
     customer_data: Optional[Dict[str, Any]],
 ) -> Optional[Dict[str, Any]]:
     """[NEW] Simpan (upsert) versi TERFILTER dari cashline+customer ke
-    dashboard."cashline-ntb-asscend" -- cuma 48 field yang App B pakai
+    dashboard."cashline-ntb-asscend" -- cuma 50 field yang App B pakai
     (lihat _ASSCEND_CASHLINE_FIELDS / _ASSCEND_CUSTOMER_FIELDS).
 
     Dipanggil dari endpoint /campaign/cashline-ntb/{result_id} SETELAH
@@ -647,7 +653,7 @@ def get_cashline_ntb_asscend_cache(result_id: str) -> Optional[Dict[str, Any]]:
     yang sesungguhnya belum pernah dipanggil untuk result_id ini).
 
     Return bentuknya SAMA seperti endpoint asli:
-    {"cashline": {...48 field...} | None, "customer": {...} | None,
+    {"cashline": {...50 field...} | None, "customer": {...} | None,
      "cached_at": "2026-...isoformat..."}.
     """
     if db_pool is None:

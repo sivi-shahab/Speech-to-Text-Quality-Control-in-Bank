@@ -21,6 +21,7 @@ import services.server_config as server_config  # HARUS PALING ATAS
 
 import os
 import sys
+import asyncio
 import time
 import logging
 import threading
@@ -33,6 +34,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from routes import speech_routes, diagnostics_routes, webhook_callback_routes
 from services.stt_singleton import get_stt, clear_instance
+from services.tmp_cleanup import TMP_CLEANUP_ENABLED, periodic_tmp_cleanup
 from utils.vars import PORT
 
 logging.basicConfig(level=logging.INFO)
@@ -68,9 +70,16 @@ async def lifespan(app: FastAPI):
         )
         raise
 
+    # Sapu temp file yatim dari worker yang mati paksa (lihat services/tmp_cleanup.py)
+    cleanup_task = None
+    if TMP_CLEANUP_ENABLED:
+        cleanup_task = asyncio.create_task(periodic_tmp_cleanup())
+
     yield
 
     # Shutdown
+    if cleanup_task:
+        cleanup_task.cancel()
     if hasattr(app.state, "stt_instance"):
         app.state.stt_instance.close()
     clear_instance()

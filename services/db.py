@@ -20,7 +20,7 @@ from urllib.parse import urlparse, unquote
 
 import psycopg2
 from psycopg2 import pool
-from psycopg2.extras import Json
+from psycopg2.extras import Json, execute_values
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +183,7 @@ def get_dynamic_prompt_from_db(ticket_id: str) -> Optional[str]:
             with conn.cursor() as cursor:
                 query = """
                     SELECT context, campaign
-                    FROM dashboard.recording_tms_api
+                    FROM dashboard.recording_tms_api2
                     WHERE tiket_id = %s 
                     AND DATE(load_date) = CURRENT_DATE
                     AND processed_at IS NULL;
@@ -395,6 +395,9 @@ def get_current_cc_scmcustp(cust_id_nbr: str) -> Optional[Dict[str, Any]]:
 #     ORDER BY tiket_id;
 # """
 
+
+
+
 _RECORDING_TMS_SQL = """
     SELECT tiket_id, file_path, julian_mis_date, mis_date, id, prospect_id,
            customer_id, cust_name, campaign, agent_id, status, created_by,
@@ -402,9 +405,8 @@ _RECORDING_TMS_SQL = """
            recording_created_time, a_number, context, source_api, load_date,
            status_data, error_message, inserted_at, processed_at
     FROM dashboard.recording_tms_api
-    WHERE load_date::date = CURRENT_DATE - INTERVAL '1 days'
-    AND processed_at IS NOT NULL
-      AND context = %s AND campaign in ('CLENB', 'CLENTB')
+    WHERE load_date::date BETWEEN CURRENT_DATE - 1 AND CURRENT_DATE
+    AND context in ('CLENB', 'CLENTB')
     ORDER BY tiket_id;
 """
 
@@ -430,7 +432,7 @@ def list_recording_tms_cashline(load_date, context: str = "cashline") -> list[Di
     try:
         with conn.cursor() as cursor:
             # cursor.execute(_RECORDING_TMS_SQL, (load_date, context))
-            cursor.execute(_RECORDING_TMS_SQL, (context,))
+            cursor.execute(_RECORDING_TMS_SQL)
             rows = cursor.fetchall()
             return [_row_to_dict(cursor, row) for row in rows]
     except Exception as e:
@@ -439,6 +441,65 @@ def list_recording_tms_cashline(load_date, context: str = "cashline") -> list[Di
             load_date, context, e,
         )
         return []
+    finally:
+        if conn:
+            db_pool.putconn(conn)
+
+
+_TRANSCRIPT_PROCESSED_COLUMNS = ["tiket_id", "file_path", "id", "campaign", "agent_id", "a_number"]
+
+
+def insert_transcript_processed(rows: list[Dict[str, Any]]) -> int:
+    """[NEW] Catat baris hasil list_recording_tms_cashline() ke
+    dashboard.transcript_processed -- cuma kolom di
+    _TRANSCRIPT_PROCESSED_COLUMNS, plus inserted_at = now() sebagai
+    penanda kapan baris tersebut dicatat.
+
+    tiket_id UNIQUE + ON CONFLICT DO NOTHING -- tiket yang sudah pernah
+    tercatat di-skip, inserted_at tetap waktu pertama kali dicatat.
+
+    Insert dalam 1 batch (execute_values) supaya tidak 1 round-trip per
+    baris. Return jumlah baris yang BENAR-BENAR ter-insert (tidak
+    termasuk yang di-skip karena duplikat; 0 kalau rows kosong /
+    pool tak tersedia / gagal -- sudah di-log, caller tidak perlu raise).
+    """
+    if not rows:
+        return 0
+    if db_pool is None:
+        logger.warning("[DB] db_pool tidak tersedia untuk insert_transcript_processed")
+        return 0
+
+    values = [tuple(r.get(c) for c in _TRANSCRIPT_PROCESSED_COLUMNS) for r in rows]
+
+    conn = _get_working_conn()
+    if conn is None:
+        return 0
+    try:
+        with conn.cursor() as cursor:
+            execute_values(
+                cursor,
+                """
+                INSERT INTO dashboard.transcript_processed
+                    (tiket_id, file_path, id, campaign, agent_id, a_number, inserted_at)
+                VALUES %s
+                ON CONFLICT (tiket_id) DO NOTHING;
+                """,
+                values,
+                template="(%s, %s, %s, %s, %s, %s, now())",
+                # 1 page saja -- rowcount execute_values cuma hitung page terakhir.
+                page_size=len(values),
+            )
+            inserted = cursor.rowcount
+        conn.commit()
+        logger.info("[DB] %d baris tercatat di transcript_processed", inserted)
+        return inserted
+    except Exception as e:
+        logger.error("[DB ERROR] Gagal insert transcript_processed (%d baris): %s", len(rows), e)
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return 0
     finally:
         if conn:
             db_pool.putconn(conn)

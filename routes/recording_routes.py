@@ -18,7 +18,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Query
 
-from services.db import list_recording_tms_cashline
+from services.db import list_recording_tms_cashline, insert_transcript_processed
 
 router = APIRouter()
 
@@ -42,12 +42,15 @@ def get_recording_tms_cashline(
             "context": "cashline",
             "count": <n>,
             "items": [ {..semua kolom..}, ... ]
-        }
+        }   
     """
     
 
     target = load_date or (datetime.now(_WIB).date() - timedelta(days=1))
     rows = list_recording_tms_cashline(target, context)
+    # Catat ke dashboard.transcript_processed -- tiket yang sudah tercatat
+    # di-skip (ON CONFLICT DO NOTHING); kegagalan tidak menggagalkan response.
+    insert_transcript_processed(rows)
     return {
         "load_date": str(target),
         "context": context,

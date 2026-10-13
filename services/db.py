@@ -505,6 +505,38 @@ def insert_transcript_processed(rows: list[Dict[str, Any]]) -> int:
             db_pool.putconn(conn)
 
 
+def list_transcript_processed() -> list[Dict[str, Any]]:
+    """[NEW] Baris dashboard.transcript_processed yang sudah tercatat
+    (``inserted_at IS NOT NULL``) kemarin s/d hari ini, urut ``tiket_id``. Balik list of dict
+    (kosong bila tak ada / pool tak tersedia / gagal -- sudah di-log).
+    """
+    if db_pool is None:
+        logger.warning("[DB] db_pool tidak tersedia untuk list_transcript_processed")
+        return []
+    conn = _get_working_conn()
+    if conn is None:
+        return []
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT tiket_id, file_path, id, campaign, agent_id, a_number, inserted_at
+                FROM dashboard.transcript_processed
+                WHERE inserted_at IS NOT NULL
+                  AND inserted_at::date BETWEEN CURRENT_DATE - 1 AND CURRENT_DATE
+                ORDER BY tiket_id;
+                """
+            )
+            rows = cursor.fetchall()
+            return [_row_to_dict(cursor, row) for row in rows]
+    except Exception as e:
+        logger.error("[DB ERROR] Gagal query transcript_processed: %s", e)
+        return []
+    finally:
+        if conn:
+            db_pool.putconn(conn)
+
+
 def save_stt_pipeline_results(
     job_id:                     str,
     audio_file:                 str,

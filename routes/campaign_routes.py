@@ -63,7 +63,10 @@ async def get_cashline_ntb_with_customer(result_id: str):
             status_code=404,
             detail=f"Data campaign tidak ditemukan untuk result_id={result_id}",
         )
-    no_ktpkitas = campaign_data.get("no-ktpkitas")
+    # [21 Oktober 2026] NIK di TMS bisa berawalan/berakhiran spasi (mis. 090857V6fU,
+    # 15 baris di campaign_cashline_ntb), sedangkan query card holder hanya men-TRIM
+    # sisi CUST_ID_NBR -- tanpa strip() card holder-nya tidak pernah ketemu.
+    no_ktpkitas = (campaign_data.get("no-ktpkitas") or "").strip()
     customer_data = None
     if no_ktpkitas:
         customer_data = get_current_cc_scmcustp(no_ktpkitas)

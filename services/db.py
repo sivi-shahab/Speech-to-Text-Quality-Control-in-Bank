@@ -183,9 +183,9 @@ def get_dynamic_prompt_from_db(ticket_id: str) -> Optional[str]:
             with conn.cursor() as cursor:
                 query = """
                     SELECT context, campaign
-                    FROM dashboard.recording_tms_api2
+                    FROM dashboard.recording_tms_api
                     WHERE tiket_id = %s 
-                    AND DATE(load_date) = CURRENT_DATE
+                    AND DATE(load_date) = CURRENT_DATE - INTERVAL '1 day'
                     AND processed_at IS NULL;
                 """
                 cursor.execute(query, (ticket_id,))

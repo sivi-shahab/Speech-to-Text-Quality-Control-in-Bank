@@ -106,6 +106,10 @@ def _load_gender_classifier(gpu_id: int):
 
 
 def _load_emotion_classifier(gpu_id: int):
+    from model.speech_stt.config import EMOTION_ENABLED
+    if not EMOTION_ENABLED:
+        logger.info("[GPU %d] Emotion classifier dimatikan (EMOTION_ENABLED=false).", gpu_id)
+        return None
     try:
         from transformers import pipeline as hf_pipeline
         from model.speech_stt.config import EMOTION_CACHE_DIR

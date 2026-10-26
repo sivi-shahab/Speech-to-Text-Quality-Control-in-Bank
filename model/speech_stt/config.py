@@ -21,6 +21,10 @@ os.makedirs(GENDER_CACHE_DIR,   exist_ok=True)
 os.makedirs(EMOTION_CACHE_DIR,  exist_ok=True)
 
 HF_TOKEN = os.getenv("HF_TOKEN", "")
+# EMOTION_ENABLED=false -> audeering emotion classifier TIDAK di-load
+# (hemat VRAM); semua pemakai classifier sudah handle None.
+EMOTION_ENABLED = os.getenv("EMOTION_ENABLED", "true").strip().lower() \
+                  not in ("false", "0", "no", "off")
 FFMPEG_TIMEOUT = int(os.getenv("FFMPEG_TIMEOUT_SECONDS", "300"))
 
 # =================================================================

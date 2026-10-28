@@ -9,17 +9,20 @@ Meta yang dihasilkan HANYA berisi angka/label/timestamp — tidak ada teks
 transkrip (aman untuk log & kolom DB).
 """
 import logging
+from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from model.speech_stt.alignment.pure_alignment import merge_same_speaker_simple
 from model.speech_stt.config import AGENT_SPEAKER_LABEL, CUSTOMER_SPEAKER_LABEL
 from model.speech_stt.diarization_v2.postprocess import (
+    SMOOTH_MAX_GAP_SEC,
+    UTTERANCE_MAX_GAP_SEC,
     collapse_to_two,
     group_utterances,
     smooth_single_word_flips,
 )
 from model.speech_stt.diarization_v2.provider import CachedRawResponseProvider
-from model.speech_stt.diarization_v2.roles import assign_roles
+from model.speech_stt.diarization_v2.roles import MIN_MARGIN, STRONG_MARGIN, assign_roles
 from model.speech_stt.diarization_v2.types import DiarizationResult
 from model.speech_stt.segment import SpeakerSegment
 
@@ -29,12 +32,26 @@ META_VERSION = 2
 MERGE_MAX_GAP_SEC = 0.6
 
 
-def run_v2(result: DiarizationResult) -> Tuple[List[SpeakerSegment], List[Dict[str, Any]], int, Dict[str, Any]]:
+@dataclass(frozen=True)
+class V2Params:
+    """Parameter post-processing. Default = nilai produksi; divariasikan oleh tools/diar_eval/grid.py."""
+    smooth_max_gap_sec: float = SMOOTH_MAX_GAP_SEC
+    utterance_max_gap_sec: float = UTTERANCE_MAX_GAP_SEC
+    role_min_margin: int = MIN_MARGIN
+    role_strong_margin: int = STRONG_MARGIN
+
+
+DEFAULT_PARAMS = V2Params()
+
+
+def run_v2(
+    result: DiarizationResult, params: V2Params = DEFAULT_PARAMS,
+) -> Tuple[List[SpeakerSegment], List[Dict[str, Any]], int, Dict[str, Any]]:
     """Return (aligned_merged, diar_segs, segments_before_merge, meta)."""
     words, n_collapsed = collapse_to_two(result.words)
-    words, n_smoothed = smooth_single_word_flips(words)
-    utterances = group_utterances(words)
-    role = assign_roles(utterances)
+    words, n_smoothed = smooth_single_word_flips(words, params.smooth_max_gap_sec)
+    utterances = group_utterances(words, params.utterance_max_gap_sec)
+    role = assign_roles(utterances, min_margin=params.role_min_margin, strong_margin=params.role_strong_margin)
 
     def label(spk):
         return AGENT_SPEAKER_LABEL if spk == role.agent else CUSTOMER_SPEAKER_LABEL
@@ -49,6 +66,7 @@ def run_v2(result: DiarizationResult) -> Tuple[List[SpeakerSegment], List[Dict[s
         "version": META_VERSION,
         **result.meta,
         "role_rule": "cue+dominance",
+        **({"v2_params": asdict(params)} if params != DEFAULT_PARAMS else {}),
         "role_confident": role.role_confident,
         "role_basis": role.basis,
         "agent_raw": role.agent,

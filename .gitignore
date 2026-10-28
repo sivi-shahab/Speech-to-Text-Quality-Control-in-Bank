@@ -2,3 +2,8 @@
 .claude
 __pycache__/
 *.py[cod]
+
+# Evaluasi diarization (berisi PII — jangan pernah di-commit)
+tools/diar_eval/cache/
+*.rttm
+diar_eval_cache/

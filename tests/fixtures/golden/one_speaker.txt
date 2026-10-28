@@ -1,0 +1,17 @@
+STATUS AUDIT   : ✅ AMAN
+Audio File: one_speaker.wav
+Generated : <ts>
+Mode      : diarization+transcription
+Language  : id
+Speakers  : 1
+Proc. Time: <t>
+DURASI BICARA:
+• Agent   (Agent     ) :    6.0 detik  ( 20.2%)
+• Nasabah (Customer  ) :    0.0 detik  (  0.0%)
+• Silence              :   23.9 detik  ( 79.8%)
+• Total                :   30.0 detik
+PROFIL & DOMINASI EMOSI:
+• Agent      : ?      | POSITIF 0% / NEGATIF 0% / NETRAL 100%
+================================================================
+Agent [NETRAL]:
+[00:00.50 -> 00:06.55] Halo selamat siang. Iya siang. Perkenalkan saya Sari dari Bank Mega.

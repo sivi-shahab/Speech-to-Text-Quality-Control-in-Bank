@@ -1,0 +1,30 @@
+STATUS AUDIT   : ✅ AMAN
+Audio File: customer_first.wav
+Generated : <ts>
+Mode      : diarization+transcription
+Language  : id
+Speakers  : 2
+Proc. Time: <t>
+DURASI BICARA:
+• Agent   (Agent     ) :    1.9 detik  (  6.5%)
+• Nasabah (Customer  ) :    5.8 detik  ( 19.5%)
+• Silence              :   22.2 detik  ( 74.0%)
+• Total                :   30.0 detik
+PROFIL & DOMINASI EMOSI:
+• Agent      : ?      | POSITIF 0% / NEGATIF 0% / NETRAL 100%
+• Customer   : ?      | POSITIF 0% / NEGATIF 0% / NETRAL 100%
+================================================================
+Agent [NETRAL]:
+[00:00.50 -> 00:00.80] Halo?
+
+[Customer [NETRAL]]:
+[00:01.50 -> 00:04.60] Selamat siang Bapak, perkenalkan saya Rina dari Bank Mega.
+
+[Agent [NETRAL]]:
+[00:05.50 -> 00:06.85] Iya, ada apa ya?
+
+[Customer [NETRAL]]:
+[00:07.50 -> 00:10.25] Izin minta waktunya sebentar untuk informasi produk Cashline.
+
+[Agent [NETRAL]]:
+[00:12.00 -> 00:12.30] Boleh.

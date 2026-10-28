@@ -1,0 +1,337 @@
+{
+ "language_code": "ind",
+ "language_probability": 0.99,
+ "text": "Halo? Selamat siang Bapak, perkenalkan saya Rina dari Bank Mega. Iya, ada apa ya? Izin minta waktunya sebentar untuk informasi produk Cashline. Boleh.",
+ "words": [
+  {
+   "text": "Halo?",
+   "start": 0.5,
+   "end": 0.8,
+   "type": "word",
+   "speaker_id": "speaker_1",
+   "logprob": -0.1
+  },
+  {
+   "text": "Selamat",
+   "start": 1.5,
+   "end": 1.8,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 1.8,
+   "end": 1.85,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "siang",
+   "start": 1.85,
+   "end": 2.15,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 2.15,
+   "end": 2.2,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "Bapak,",
+   "start": 2.2,
+   "end": 2.5,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 2.5,
+   "end": 2.55,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "perkenalkan",
+   "start": 2.55,
+   "end": 2.85,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 2.85,
+   "end": 2.9,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "saya",
+   "start": 2.9,
+   "end": 3.2,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 3.2,
+   "end": 3.25,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "Rina",
+   "start": 3.25,
+   "end": 3.55,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 3.55,
+   "end": 3.6,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "dari",
+   "start": 3.6,
+   "end": 3.9,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 3.9,
+   "end": 3.95,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "Bank",
+   "start": 3.95,
+   "end": 4.25,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 4.25,
+   "end": 4.3,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "Mega.",
+   "start": 4.3,
+   "end": 4.6,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": "Iya,",
+   "start": 5.5,
+   "end": 5.8,
+   "type": "word",
+   "speaker_id": "speaker_1",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 5.8,
+   "end": 5.85,
+   "type": "spacing",
+   "speaker_id": "speaker_1",
+   "logprob": 0.0
+  },
+  {
+   "text": "ada",
+   "start": 5.85,
+   "end": 6.15,
+   "type": "word",
+   "speaker_id": "speaker_1",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 6.15,
+   "end": 6.2,
+   "type": "spacing",
+   "speaker_id": "speaker_1",
+   "logprob": 0.0
+  },
+  {
+   "text": "apa",
+   "start": 6.2,
+   "end": 6.5,
+   "type": "word",
+   "speaker_id": "speaker_1",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 6.5,
+   "end": 6.55,
+   "type": "spacing",
+   "speaker_id": "speaker_1",
+   "logprob": 0.0
+  },
+  {
+   "text": "ya?",
+   "start": 6.55,
+   "end": 6.85,
+   "type": "word",
+   "speaker_id": "speaker_1",
+   "logprob": -0.1
+  },
+  {
+   "text": "Izin",
+   "start": 7.5,
+   "end": 7.8,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 7.8,
+   "end": 7.85,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "minta",
+   "start": 7.85,
+   "end": 8.15,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 8.15,
+   "end": 8.2,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "waktunya",
+   "start": 8.2,
+   "end": 8.5,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 8.5,
+   "end": 8.55,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "sebentar",
+   "start": 8.55,
+   "end": 8.85,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 8.85,
+   "end": 8.9,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "untuk",
+   "start": 8.9,
+   "end": 9.2,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 9.2,
+   "end": 9.25,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "informasi",
+   "start": 9.25,
+   "end": 9.55,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 9.55,
+   "end": 9.6,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "produk",
+   "start": 9.6,
+   "end": 9.9,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 9.9,
+   "end": 9.95,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "Cashline.",
+   "start": 9.95,
+   "end": 10.25,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": "Boleh.",
+   "start": 12.0,
+   "end": 12.3,
+   "type": "word",
+   "speaker_id": "speaker_1",
+   "logprob": -0.1
+  }
+ ],
+ "transcription_id": "synthetic",
+ "audio_duration_secs": 30.0
+}

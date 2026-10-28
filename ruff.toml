@@ -1,0 +1,12 @@
+# Lint HANYA untuk kode baru (diarization v2, test, tool evaluasi) supaya kode
+# lama tidak ikut diformat ulang. Lihat docs/diarization-impl-plan.md Fase 0.
+include = [
+    "tests/**/*.py",
+    "model/speech_stt/diarization_v2/**/*.py",
+    "tools/diar_eval/**/*.py",
+]
+line-length = 120
+target-version = "py311"
+
+[lint]
+select = ["E", "F", "W", "I"]

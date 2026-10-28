@@ -1,0 +1,161 @@
+{
+ "language_code": "ind",
+ "language_probability": 0.99,
+ "text": "Halo selamat siang. Iya siang. Perkenalkan saya Sari dari Bank Mega.",
+ "words": [
+  {
+   "text": "Halo",
+   "start": 0.5,
+   "end": 0.8,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 0.8,
+   "end": 0.85,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "selamat",
+   "start": 0.85,
+   "end": 1.15,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 1.15,
+   "end": 1.2,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "siang.",
+   "start": 1.2,
+   "end": 1.5,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": "Iya",
+   "start": 2.5,
+   "end": 2.8,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 2.8,
+   "end": 2.85,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "siang.",
+   "start": 2.85,
+   "end": 3.15,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": "Perkenalkan",
+   "start": 4.5,
+   "end": 4.8,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 4.8,
+   "end": 4.85,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "saya",
+   "start": 4.85,
+   "end": 5.15,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 5.15,
+   "end": 5.2,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "Sari",
+   "start": 5.2,
+   "end": 5.5,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 5.5,
+   "end": 5.55,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "dari",
+   "start": 5.55,
+   "end": 5.85,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 5.85,
+   "end": 5.9,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "Bank",
+   "start": 5.9,
+   "end": 6.2,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 6.2,
+   "end": 6.25,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "Mega.",
+   "start": 6.25,
+   "end": 6.55,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  }
+ ],
+ "transcription_id": "synthetic",
+ "audio_duration_secs": 30.0
+}

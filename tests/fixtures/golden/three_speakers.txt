@@ -1,0 +1,26 @@
+STATUS AUDIT   : ✅ AMAN
+Audio File: three_speakers.wav
+Generated : <ts>
+Mode      : diarization+transcription
+Language  : id
+Speakers  : 2
+Proc. Time: <t>
+DURASI BICARA:
+• Agent   (Agent     ) :    4.1 detik  ( 13.7%)
+• Nasabah (Customer  ) :    1.9 detik  (  6.5%)
+• Silence              :   23.9 detik  ( 79.8%)
+• Total                :   30.0 detik
+PROFIL & DOMINASI EMOSI:
+• Agent      : ?      | POSITIF 0% / NEGATIF 0% / NETRAL 100%
+• Customer   : ?      | POSITIF 0% / NEGATIF 0% / NETRAL 100%
+================================================================
+Agent [NETRAL]:
+[00:00.50 -> 00:02.90] Selamat sore, saya Dimas dari Bank Mega.
+
+[Customer [NETRAL]]:
+[00:03.50 -> 00:04.15] Sore, iya.
+[00:05.35 -> 00:06.35] apakah bapak setuju
+[00:07.50 -> 00:07.80] Setuju.
+
+[Agent [NETRAL]]:
+[00:09.00 -> 00:10.70] Baik, kami informasikan biaya provisi.

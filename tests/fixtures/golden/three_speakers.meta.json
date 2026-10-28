@@ -1,0 +1,25 @@
+{
+ "detected_language": "id",
+ "mode": "diarization+transcription",
+ "reattributed_count": 0,
+ "speaker_count": 2,
+ "speaker_durations": {
+  "Agent": 4.1,
+  "Customer": 1.9500000000000002
+ },
+ "talk_time": {
+  "agent": {
+   "duration_sec": 4.1,
+   "pct": 13.7,
+   "speaker": "Agent"
+  },
+  "nasabah": {
+   "duration_sec": 1.95,
+   "pct": 6.5,
+   "speaker": "Customer"
+  },
+  "silence_pct": 79.8,
+  "silence_sec": 23.95,
+  "total_sec": 30.0
+ }
+}

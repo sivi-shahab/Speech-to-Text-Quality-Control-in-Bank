@@ -1,0 +1,273 @@
+{
+ "language_code": "ind",
+ "language_probability": 0.99,
+ "text": "Selamat sore, saya Dimas dari Bank Mega. Sore, iya. (tertawa) apakah bapak setuju Setuju. Baik, kami informasikan biaya provisi.",
+ "words": [
+  {
+   "text": "Selamat",
+   "start": 0.5,
+   "end": 0.8,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 0.8,
+   "end": 0.85,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "sore,",
+   "start": 0.85,
+   "end": 1.15,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 1.15,
+   "end": 1.2,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "saya",
+   "start": 1.2,
+   "end": 1.5,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 1.5,
+   "end": 1.55,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "Dimas",
+   "start": 1.55,
+   "end": 1.85,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 1.85,
+   "end": 1.9,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "dari",
+   "start": 1.9,
+   "end": 2.2,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 2.2,
+   "end": 2.25,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "Bank",
+   "start": 2.25,
+   "end": 2.55,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 2.55,
+   "end": 2.6,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "Mega.",
+   "start": 2.6,
+   "end": 2.9,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": "Sore,",
+   "start": 3.5,
+   "end": 3.8,
+   "type": "word",
+   "speaker_id": "speaker_1",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 3.8,
+   "end": 3.85,
+   "type": "spacing",
+   "speaker_id": "speaker_1",
+   "logprob": 0.0
+  },
+  {
+   "text": "iya.",
+   "start": 3.85,
+   "end": 4.15,
+   "type": "word",
+   "speaker_id": "speaker_1",
+   "logprob": -0.1
+  },
+  {
+   "text": "(tertawa)",
+   "start": 5.0,
+   "end": 5.3,
+   "type": "audio_event",
+   "speaker_id": "speaker_2",
+   "logprob": 0.0
+  },
+  {
+   "text": " ",
+   "start": 5.3,
+   "end": 5.35,
+   "type": "spacing",
+   "speaker_id": "speaker_2",
+   "logprob": 0.0
+  },
+  {
+   "text": "apakah",
+   "start": 5.35,
+   "end": 5.65,
+   "type": "word",
+   "speaker_id": "speaker_2",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 5.65,
+   "end": 5.7,
+   "type": "spacing",
+   "speaker_id": "speaker_2",
+   "logprob": 0.0
+  },
+  {
+   "text": "bapak",
+   "start": 5.7,
+   "end": 6.0,
+   "type": "word",
+   "speaker_id": "speaker_2",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 6.0,
+   "end": 6.05,
+   "type": "spacing",
+   "speaker_id": "speaker_2",
+   "logprob": 0.0
+  },
+  {
+   "text": "setuju",
+   "start": 6.05,
+   "end": 6.35,
+   "type": "word",
+   "speaker_id": "speaker_2",
+   "logprob": -0.1
+  },
+  {
+   "text": "Setuju.",
+   "start": 7.5,
+   "end": 7.8,
+   "type": "word",
+   "speaker_id": "speaker_1",
+   "logprob": -0.1
+  },
+  {
+   "text": "Baik,",
+   "start": 9.0,
+   "end": 9.3,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 9.3,
+   "end": 9.35,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "kami",
+   "start": 9.35,
+   "end": 9.65,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 9.65,
+   "end": 9.7,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "informasikan",
+   "start": 9.7,
+   "end": 10.0,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 10.0,
+   "end": 10.05,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "biaya",
+   "start": 10.05,
+   "end": 10.35,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  },
+  {
+   "text": " ",
+   "start": 10.35,
+   "end": 10.4,
+   "type": "spacing",
+   "speaker_id": "speaker_0",
+   "logprob": 0.0
+  },
+  {
+   "text": "provisi.",
+   "start": 10.4,
+   "end": 10.7,
+   "type": "word",
+   "speaker_id": "speaker_0",
+   "logprob": -0.1
+  }
+ ],
+ "transcription_id": "synthetic",
+ "audio_duration_secs": 30.0
+}

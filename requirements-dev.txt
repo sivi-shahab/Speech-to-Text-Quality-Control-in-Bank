@@ -1,0 +1,18 @@
+# =================================================================
+# Speech STT Service — requirements-dev.txt (test & lint SAJA)
+# =================================================================
+# JANGAN di-install ke venv produksi (/data/speech_to_text/.venv).
+# Setup venv dev terpisah yang MEMBACA package produksi lewat .pth
+# (versi dependency identik dengan runtime, venv produksi tidak disentuh):
+#
+#   python3.11 -m venv /data/speech_to_text_v4/.venv-dev
+#   echo /data/speech_to_text/.venv/lib/python3.11/site-packages \
+#     > /data/speech_to_text_v4/.venv-dev/lib/python3.11/site-packages/zz_prod_site_packages.pth
+#   /data/speech_to_text_v4/.venv-dev/bin/pip install -r requirements-dev.txt
+#
+# Jalankan:
+#   /data/speech_to_text_v4/.venv-dev/bin/pytest
+#   /data/speech_to_text_v4/.venv-dev/bin/ruff check
+# =================================================================
+pytest==8.3.3
+ruff==0.7.1

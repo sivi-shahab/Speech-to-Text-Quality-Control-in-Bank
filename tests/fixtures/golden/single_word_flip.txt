@@ -1,0 +1,30 @@
+STATUS AUDIT   : ✅ AMAN
+Audio File: single_word_flip.wav
+Generated : <ts>
+Mode      : diarization+transcription
+Language  : id
+Speakers  : 2
+Proc. Time: <t>
+DURASI BICARA:
+• Agent   (Agent     ) :    4.8 detik  ( 15.8%)
+• Nasabah (Customer  ) :    0.9 detik  (  3.2%)
+• Silence              :   24.3 detik  ( 81.0%)
+• Total                :   30.0 detik
+PROFIL & DOMINASI EMOSI:
+• Agent      : ?      | POSITIF 0% / NEGATIF 0% / NETRAL 100%
+• Customer   : ?      | POSITIF 0% / NEGATIF 0% / NETRAL 100%
+================================================================
+Agent [NETRAL]:
+[00:00.50 -> 00:01.85] Selamat pagi Ibu, saya
+
+[Customer [NETRAL]]:
+[00:01.90 -> 00:02.20] dari
+
+[Agent [NETRAL]]:
+[00:02.25 -> 00:03.95] Bank Mega ingin menyampaikan penawaran.
+
+[Customer [NETRAL]]:
+[00:05.00 -> 00:05.65] Iya silakan.
+
+[Agent [NETRAL]]:
+[00:07.00 -> 00:08.70] Terima kasih atas waktunya Ibu.

@@ -1,0 +1,38 @@
+# Cue role untuk assign_roles() (model/speech_stt/diarization_v2/roles.py).
+#
+# intro & script: porting dari App B telemarketing-qc-worker
+# core/compliance/call_ownership.py (_ROLE_INTRO baris 249-253, _ROLE_SCRIPT
+# baris 274-282) — divalidasi App B secara manual pada 31 PDF tertukar.
+# Selama keputusan K4 (sumber kebenaran tunggal) belum diambil, perubahan di
+# App B HARUS disalin ke sini juga (naikkan `version`).
+#
+# Semua pola dicocokkan case-insensitive terhadap teks satu utterance.
+version: 1
+intro_window: 8          # intro hanya dihitung di N utterance pertama (sama dengan App B)
+weights:
+  intro: 2
+  script: 1
+  customer: -1
+
+intro:
+  - 'dari\s+(?:pusat\s+informasi\s+|call\s*cent(?:er|re)\s+|bagian\s+[\w\s]{0,20}?)?bank\s*mega'
+  - '\bnama\s+saya\b'
+  - '\bperkenalkan\b'
+
+script:
+  - 'izin\s+minta\s+waktu'
+  - 'minta\s+waktunya\s+sebentar'
+  - '\bdengan\s+\w+\s+kembali\b'
+  - 'boleh\s+dibantu\s+ulang'
+  - 'dibantu\s+ulang\s+kembali'
+  - 'saya\s+ulangi\s+kembali'
+  - 'kami\s+informasikan'
+  - 'perlu\s+kami\s+informasikan'
+  - 'terima\s+kasih\s+atas\s+waktunya'
+  - 'apakah\s+(?:bapak|ibu)\s+setuju'
+
+# Ucapan khas nasabah saat ditelepon (tambahan v2, BELUM divalidasi App B —
+# bobot negatif kecil; dievaluasi ulang di Fase 3).
+customer:
+  - '\bini\s+(?:dari\s+)?mana\b'
+  - '\bini\s+siapa\b'

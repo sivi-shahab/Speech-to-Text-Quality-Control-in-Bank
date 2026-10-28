@@ -22,6 +22,14 @@ class Utterance:
 
 
 @dataclass
+class RoleDecision:
+    agent: Optional[str]          # label mentah Scribe yang ditetapkan sebagai Agent
+    role_confident: bool
+    basis: str                    # cue+dominance | cue | cue_vs_dominance | dominance | single_speaker | empty
+    evidence: Dict[str, Any] = field(default_factory=dict)  # HANYA hitungan, tanpa teks
+
+
+@dataclass
 class DiarizationResult:
     words: List[Word]
     raw_response: Optional[Dict[str, Any]] = None

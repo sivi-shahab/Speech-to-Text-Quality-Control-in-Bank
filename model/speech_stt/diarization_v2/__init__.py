@@ -17,13 +17,16 @@ from model.speech_stt.diarization_v2.provider import (
     ScribeDiarizationProvider,
     words_from_raw,
 )
-from model.speech_stt.diarization_v2.types import DiarizationResult, Utterance, Word
+from model.speech_stt.diarization_v2.roles import assign_roles
+from model.speech_stt.diarization_v2.types import DiarizationResult, RoleDecision, Utterance, Word
 
 __all__ = [
     "CachedRawResponseProvider",
     "DiarizationProvider",
     "DiarizationResult",
+    "RoleDecision",
     "ScribeDiarizationProvider",
+    "assign_roles",
     "Utterance",
     "Word",
     "run_v2",

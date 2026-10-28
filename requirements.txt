@@ -28,6 +28,9 @@ psycopg2-binary>=2.9
 reportlab>=4.0
 requests>=2.31
 
+# ── Diarization v2: role_cues.yaml (sudah ikut terpasang via transformers) ──
+pyyaml>=5.1
+
 # =================================================================
 # OPSIONAL — install manual sesuai kebutuhan, atau lewat build arg
 # Dockerfile (INSTALL_ELEVENLABS / INSTALL_NEMO), TIDAK di-install

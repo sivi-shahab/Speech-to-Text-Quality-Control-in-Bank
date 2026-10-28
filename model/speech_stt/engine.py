@@ -300,7 +300,21 @@ class SpeechSTT:
                 "warning": "phase_cancellation_detected",
             }
 
-        if getattr(self._asr, "provides_own_diarization", False):
+        # [NEW] Diarization v2 (DIARIZATION_V2_MODE, default off) — lihat
+        # model/speech_stt/diarization_v2/. "on": output dari v2; "shadow":
+        # jalur lama tetap menentukan output, v2 dihitung di bawah dari raw
+        # response yang sama; "off": cabang v2 tidak tersentuh sama sekali.
+        diarization_v2 = None
+        own_diarization = getattr(self._asr, "provides_own_diarization", False)
+        if own_diarization and stt_config.DIARIZATION_V2_MODE == "on":
+            from model.speech_stt.diarization_v2 import ScribeDiarizationProvider, run_v2
+            result = ScribeDiarizationProvider.from_config(self._asr).diarize(audio_path, language)
+            aligned, diar_segs, segments_before_merge, diarization_v2 = run_v2(result)
+            reattributed_count    = 0
+            detected_language     = language
+            language_probability  = 1.0
+
+        elif getattr(self._asr, "provides_own_diarization", False):
             # ════════════════════════════════════════════════════════
             # [NEW] Backend ASR sudah menyediakan diarization sendiri
             # (mis. ElevenLabs Scribe) — SATU panggilan API menghasilkan
@@ -389,6 +403,10 @@ class SpeechSTT:
 
             detected_language     = language
             language_probability  = 1.0
+
+        if own_diarization and stt_config.DIARIZATION_V2_MODE == "shadow":
+            from model.speech_stt.diarization_v2 import shadow_from_raw
+            diarization_v2 = shadow_from_raw(getattr(self._asr, "last_raw_response", None))
 
         # Gender detection
         self._pitch_history.clear()
@@ -514,6 +532,7 @@ class SpeechSTT:
             "fraud_alerts":       fraud_alerts,
             "elevenlabs_raw_response": elevenlabs_raw_response,
             **stats,
+            **({"diarization_v2": diarization_v2} if diarization_v2 is not None else {}),
         }
 
     def transcribe_simple_complete(

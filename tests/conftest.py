@@ -17,6 +17,7 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 os.environ["AGENT_SPEAKER_LABEL"] = "Agent"
 os.environ["CUSTOMER_SPEAKER_LABEL"] = "Customer"
+os.environ["DIARIZATION_V2_MODE"] = "off"
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 

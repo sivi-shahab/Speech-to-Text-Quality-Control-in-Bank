@@ -292,3 +292,27 @@ ELEVENLABS_KEYTERMS = [
     t.strip() for t in os.getenv("ELEVENLABS_KEYTERMS", "").split(",") if t.strip()
 ]
 ELEVENLABS_REQUEST_TIMEOUT_SEC = float(os.getenv("ELEVENLABS_REQUEST_TIMEOUT_SEC", "300"))
+
+# =================================================================
+# [NEW] Diarization v2 (ElevenLabs Scribe) — lihat
+# model/speech_stt/diarization_v2/ dan docs/diarization-impl-plan.md.
+#   DIARIZATION_V2_MODE : off (default, jalur lama apa adanya) | shadow
+#                         (v2 dihitung dari raw response yang sama, hanya
+#                         masuk metadata) | on (output dari v2). Nilai tak
+#                         dikenal -> off.
+#   SCRIBE_DIAR_MODE    : fixed2 (num_speakers=2) | threshold (num_speakers
+#                         kosong + SCRIBE_DIAR_THRESHOLD) | roles
+#                         (detect_speaker_roles, +10% biaya). Hanya dipakai
+#                         saat DIARIZATION_V2_MODE=on.
+#   SCRIBE_ENABLE_LOGGING : kosong = tidak dikirim (retensi default akun);
+#                         false = zero-retention (khusus enterprise).
+#   SCRIBE_KEYTERMS_FILE  : YAML keyterms per campaign (dipakai mulai Fase 5).
+# =================================================================
+DIARIZATION_V2_MODE = os.getenv("DIARIZATION_V2_MODE", "off").strip().lower()
+if DIARIZATION_V2_MODE not in ("off", "shadow", "on"):
+    DIARIZATION_V2_MODE = "off"
+SCRIBE_DIAR_MODE      = os.getenv("SCRIBE_DIAR_MODE", "fixed2").strip().lower()
+SCRIBE_DIAR_THRESHOLD = _optional_float("SCRIBE_DIAR_THRESHOLD")
+_scribe_logging = os.getenv("SCRIBE_ENABLE_LOGGING", "").strip().lower()
+SCRIBE_ENABLE_LOGGING = None if not _scribe_logging else _scribe_logging not in ("false", "0", "no", "off")
+SCRIBE_KEYTERMS_FILE  = os.getenv("SCRIBE_KEYTERMS_FILE", "").strip() or None

@@ -88,6 +88,7 @@ def test_cache_tulis_baca_izin_dan_purge(tmp_path):
     cache.write_manifest(root, campaign="Cashline")
     assert stat.S_IMODE(os.stat(root).st_mode) == 0o700
     assert stat.S_IMODE(os.stat(root / "stem1.json").st_mode) == 0o600
+    (root / "gt_sample.json").write_text('{"calls": []}')  # file non-entri di direktori cache
     entries = list(cache.iter_entries(root))
     assert [e["stem"] for e in entries] == ["stem1"]
     assert set(entries[0]["raw"]["words"][0]) == set(cache.WORD_KEYS)

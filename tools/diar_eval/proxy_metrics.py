@@ -69,9 +69,13 @@ def evaluate_call(raw: Dict, params: V2Params = DEFAULT_PARAMS, cues=None) -> Op
 
     old_segs = legacy_segments(raw)
     old = next((s["speaker_original"] for s in old_segs if s["speaker"] == "Agent"), None)
+    pats = cues["intro"] + cues["script"]
     return {
         "n_words": len(words),
         "n_spk_raw": len(n_words),
+        "duration_sec": raw.get("audio_duration_secs"),
+        "minor_words": sum(n_words.values()) - max(n_words.values()),
+        "cue_raw_labels": len({u.speaker for u in raw_utts if any(p.search(u.text) for p in pats)}),
         "legacy_agent": old,
         "v2_agent": meta["agent_raw"],
         "cue_appb": cue_appb(raw_utts, cues),

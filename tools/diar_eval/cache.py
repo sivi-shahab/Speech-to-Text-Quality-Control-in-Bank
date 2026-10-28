@@ -79,9 +79,13 @@ def write_manifest(root: Path, **info) -> None:
 
 
 def iter_entries(root: Path) -> Iterator[Dict]:
+    """Hanya file entri cache ({stem, raw, ...}); file lain di direktori (manifest, sampel) dilewati."""
     for path in sorted(root.glob("*.json")):
-        if path.name != MANIFEST:
-            yield json.loads(path.read_text())
+        if path.name == MANIFEST:
+            continue
+        data = json.loads(path.read_text())
+        if isinstance(data, dict) and "stem" in data and "raw" in data:
+            yield data
 
 
 def purge(root: Path) -> None:

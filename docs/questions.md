@@ -47,6 +47,8 @@ Isi kolom **Jawaban** lalu beri tahu saya. Pertanyaan bertanda ⭐ memblokir ata
 | D2 ⭐ | Siapa yang melabeli ground truth (tim QC?), dan berapa kapasitasnya per minggu? | Menentukan jadwal Fase evaluasi. | |
 | D3 | Format label: cukup label speaker per segmen (start, end, AGENT/NASABAH), atau juga perlu koreksi teks? | DER hanya butuh label waktu dan speaker. Koreksi teks jauh lebih mahal. | |
 | D4 | Item checklist mana yang paling kritis bergantung pada role (mis. disclosure bunga, perkenalan nama agent, persetujuan nasabah)? | Role accuracy akan diukur per item ini, bukan per vonis NQ/PASS. | |
+| D6 ⭐ | Dari mana pelabel mendapat **file audio** 40 call sampel? App A tidak menyimpan audio setelah diproses. Apakah dari MinIO App B (bucket `audio`?), PBX, atau sumber lain? | Pelabelan tidak bisa dimulai tanpa audio. Sampel sudah siap di `/data/speech_to_text_v4/diar_eval_cache/gt_sample.json`. | |
+| D7 | Strata ke-5 `undecided` (call NQ tanpa cue/seri: 35 call, di mana v2 dan jalur lama berbeda ±24%): ikut disampel? Pilihannya 40 call (4 strata) atau 50 call (5 strata, +1 jam audio). | Hanya GT yang bisa menilai siapa yang benar di kelompok ini. | |
 | D5 | Bolehkah 217 PDF korpus kalibrasi App B (termasuk 31 yang tertukar) dipakai sebagai seed evaluasi role? | Seed gratis untuk role accuracy karena sudah divalidasi manual. | |
 
 ## E. ElevenLabs & kepatuhan

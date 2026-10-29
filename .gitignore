@@ -7,3 +7,6 @@ __pycache__/
 tools/diar_eval/cache/
 *.rttm
 diar_eval_cache/
+
+# Secrets
+.env

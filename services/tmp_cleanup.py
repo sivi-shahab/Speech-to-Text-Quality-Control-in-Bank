@@ -36,6 +36,7 @@ TMP_CLEANUP_INTERVAL_MINUTES = float(os.getenv("TMP_CLEANUP_INTERVAL_MINUTES", "
 _FILE_PATTERNS = (
     "upload_*",              # routes/speech_routes.py (upload & upload_dashboard)
     "videoaudio_*",          # services/audio_upload.py
+    "eleven_raw_*",          # routes/elevenlabs_stt_routes.py (body audio mentah)
     "stt_converted_*.wav",   # services/stt_audio_prep.py
     "stt_raw_*.raw",         # model/speech_stt/engine.py
     "emo_seg_*.wav",         # model/speech_stt/audio_slicing.py

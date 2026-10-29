@@ -239,3 +239,26 @@ def test_analyze_speakers_jalan_di_engine_whisper_tanpa_transcribe(synthetic_wav
     assert sum(st["TOTAL"] for st in out["speaker_stats"].values()) == len(aligned)
     assert out["talk_time"]["agent"]["speaker"] == "Agent"
     assert out["talk_time"]["total_sec"] == 30.0          # durasi synthetic_wav
+
+
+# ── File temp yatim (proses mati di tengah request) ikut disapu tmp_cleanup ──
+
+def test_temp_body_yatim_disapu_tmp_cleanup(client_with, tmp_path, monkeypatch):
+    import tempfile
+
+    from services.tmp_cleanup import cleanup_stale_temp_files
+
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    client, fake = client_with(load_scribe_response("one_speaker"))
+    client.post(URL, content=b"audio", headers={"Content-Type": "audio/mpeg"})
+    name = os.path.basename(fake.calls[0]["path"])   # nama asli buatan endpoint
+
+    stale, fresh = tmp_path / name, tmp_path / ("fresh_" + name)
+    stale.write_bytes(b"x")
+    fresh.write_bytes(b"x")
+    os.utime(stale, (0, 0))
+    fresh.rename(tmp_path / name.replace("eleven_raw_", "eleven_raw_new_"))
+
+    assert cleanup_stale_temp_files(str(tmp_path), max_age_hours=6) == 1
+    assert not stale.exists()
+    assert (tmp_path / name.replace("eleven_raw_", "eleven_raw_new_")).exists()

@@ -58,6 +58,25 @@ logging.basicConfig(level=logging.INFO, force=True)
 logger = logging.getLogger(__name__)
 
 
+def scribe_segments_to_aligned(
+    raw_segments: List[Dict[str, Any]],
+) -> Tuple[List[Dict[str, Any]], List[SpeakerSegment], int]:
+    """
+    Segmen speaker dari ElevenLabs Scribe -> (diar_segs, aligned, segments_before_merge).
+    diar_segs = segmen sudah dilabel Agent/Customer (input gender detection);
+    aligned   = SpeakerSegment yang sudah di-merge per giliran bicara.
+    """
+    diar_segs = map_speakers_to_binary(raw_segments)
+    aligned = [
+        SpeakerSegment(s["start"], s["end"], s.get("text", "").strip(),
+                        s["speaker"], confidence=0.9)
+        for s in diar_segs if s.get("text", "").strip()
+    ]
+    segments_before_merge = len(aligned)
+    aligned = merge_same_speaker_simple(aligned, max_gap_sec=0.6)
+    return diar_segs, aligned, segments_before_merge
+
+
 class SpeechSTT:
     def __init__(
         self,
@@ -104,7 +123,6 @@ class SpeechSTT:
         self.gender_classifier  = None
         self.emotion_classifier = None
         self.nemo_diarizer      = None
-        self._pitch_history: Dict[str, Any] = {}
         self.nemo_available     = False
         self._closed            = False
         self._asr               = None  # ASRBackend, di-set penuh di load_model()
@@ -324,20 +342,10 @@ class SpeechSTT:
             raw_segments = self._asr.transcribe_with_speakers(
                 audio_path, language, initial_prompt, num_speakers=2,
             )
-            raw_segments = map_speakers_to_binary(raw_segments)
-            # [FIX] diar_segs WAJIB di-set di sini — dipakai run_gender_detection()
-            # di bawah (butuh list of dict {"start","end","speaker"} per speaker
-            # untuk ekstrak audio & analisis pitch). Tanpa ini, gender detection
-            # akan NameError untuk backend yang provides_own_diarization=True.
-            diar_segs = raw_segments
-            aligned = [
-                SpeakerSegment(s["start"], s["end"], s.get("text", "").strip(),
-                                s["speaker"], confidence=0.9)
-                for s in raw_segments if s.get("text", "").strip()
-            ]
+            # [FIX] diar_segs WAJIB di-set di sini — dipakai analyze_speakers()
+            # (gender detection butuh {"start","end","speaker"} per speaker).
+            diar_segs, aligned, segments_before_merge = scribe_segments_to_aligned(raw_segments)
             reattributed_count     = 0
-            segments_before_merge  = len(aligned)
-            aligned = merge_same_speaker_simple(aligned, max_gap_sec=0.6)
 
             detected_language     = language
             language_probability = 1.0
@@ -408,93 +416,12 @@ class SpeechSTT:
             from model.speech_stt.diarization_v2 import shadow_from_raw
             diarization_v2 = shadow_from_raw(getattr(self._asr, "last_raw_response", None))
 
-        # Gender detection
-        self._pitch_history.clear()
-        gender_map = run_gender_detection(audio_path, diar_segs, self._pitch_history)
-
-        # Emotion + Fraud
-        classifier      = _SHARED_EMOTION.get(self.gpu_id)
-        segment_emotions: List[str]      = []
-        speaker_stats:    Dict[str, dict] = {}
-        fraud_alerts:     List[Dict]      = []
-        fraud_cooldown:   Dict[str, int]  = {}
-        self._pitch_history.clear()
-
-        logger.info("[Worker:%d] Memulai emotion+fraud detection (%d segmen)...",
-                    self.worker_id, len(aligned))
-
-        for seg in aligned:
-            if is_hallucination(seg.text):
-                segment_emotions.append("NETRAL")
-                accum_speaker_stats(speaker_stats, seg.speaker, "NETRAL")
-                continue
-
-            tmp_seg_wav = extract_single_segment_audio(
-                audio_path, seg.start, seg.end, seg.speaker)
-
-            seg_dur     = seg.end - seg.start
-            in_cooldown = fraud_cooldown.get(seg.speaker, 0) > 0
-            if in_cooldown:
-                fraud_cooldown[seg.speaker] -= 1
-
-            if DSP_FRAUD_ENABLED:
-                if tmp_seg_wav and seg_dur >= DSP_FRAUD_MIN_DUR_SEC and not in_cooldown:
-                    try:
-                        dsp_result = analyze_gender_and_fraud_dsp(
-                            seg.speaker, tmp_seg_wav, self._pitch_history,
-                            seg_timestamp=seg.start,
-                        )
-                        if "suspect_fraud" in dsp_result:
-                            fraud_alerts.append({
-                                "speaker":   seg.speaker,
-                                "timestamp": format_time(seg.start),
-                                "type":      "pitch_unstable" if "unstable" in dsp_result
-                                             else "pitch_jump",
-                                "detail":    dsp_result,
-                            })
-                            fraud_cooldown[seg.speaker] = DSP_FRAUD_COOLDOWN_SEGS
-                            logger.warning("[Fraud] %s @ %s: %s", seg.speaker,
-                                           format_time(seg.start), dsp_result)
-                    except Exception as e:
-                        logger.warning("[Fraud/DSP] Error: %s", e)
-                elif tmp_seg_wav and seg_dur < DSP_FRAUD_MIN_DUR_SEC:
-                    try:
-                        analyze_gender_and_fraud_dsp(
-                            seg.speaker, tmp_seg_wav, self._pitch_history,
-                            seg_timestamp=seg.start)
-                    except Exception:
-                        pass
-
-            if tmp_seg_wav and classifier is not None:
-                try:
-                    results     = classifier(tmp_seg_wav)
-                    emo_metrics: Dict[str, float] = {}
-                    for res in results:
-                        lbl = res["label"].lower().strip()
-                        if "arousal"   in lbl: emo_metrics["arousal"]   = float(res["score"])
-                        elif "dominance" in lbl: emo_metrics["dominance"] = float(res["score"])
-                        elif "valence"   in lbl: emo_metrics["valence"]   = float(res["score"])
-                    for key in ("arousal", "dominance", "valence"):
-                        emo_metrics.setdefault(key, 0.5)
-                    conclusion = get_telemarketing_conclusion(emo_metrics)
-                except Exception as e:
-                    logger.warning("[Emotion/seg] Error: %s", e)
-                    conclusion = "NETRAL"
-                finally:
-                    self.cleanup_temp_file(tmp_seg_wav)
-            else:
-                if tmp_seg_wav:
-                    self.cleanup_temp_file(tmp_seg_wav)
-                conclusion = "NETRAL"
-
-            segment_emotions.append(conclusion)
-            accum_speaker_stats(speaker_stats, seg.speaker, conclusion)
-
-        # Talk-time
-        talk_time = compute_talk_time(aligned, audio_path)
-        logger.info("[TalkTime] %s", talk_time)
-        if fraud_alerts:
-            logger.warning("[Fraud] Total alerts: %d", len(fraud_alerts))
+        speaker_analysis = self.analyze_speakers(audio_path, aligned, diar_segs)
+        gender_map       = speaker_analysis["speaker_genders"]
+        segment_emotions = speaker_analysis["segment_emotions"]
+        speaker_stats    = speaker_analysis["speaker_stats"]
+        fraud_alerts     = speaker_analysis["fraud_alerts"]
+        talk_time        = speaker_analysis["talk_time"]
 
         audio_meta = {
             "file_name":    original_filename or os.path.basename(audio_path),
@@ -533,6 +460,120 @@ class SpeechSTT:
             "elevenlabs_raw_response": elevenlabs_raw_response,
             **stats,
             **({"diarization_v2": diarization_v2} if diarization_v2 is not None else {}),
+        }
+
+    def analyze_speakers(
+        self,
+        audio_path: str,
+        aligned:    List[SpeakerSegment],
+        diar_segs:  List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """
+        Gender + emotion + fraud DSP + talk-time dari segmen speaker yang
+        SUDAH FINAL — tidak peduli sumber diarization-nya (ElevenLabs,
+        pyannote, NeMo) maupun backend ASR yang aktif. Dipakai
+        transcribe_with_diarization() dan endpoint /speech/stt/elevenlabs.
+
+        audio_path : WAV yang dipotong per segmen (timestamp harus cocok)
+        aligned    : segmen per giliran bicara -> emotion + fraud
+        diar_segs  : list {"start","end","speaker"} -> gender per speaker
+
+        pitch_history lokal per panggilan (bukan atribut instance) supaya
+        aman dipanggil paralel dari beberapa thread di instance yang sama.
+        """
+        # Gender detection
+        gender_map = run_gender_detection(audio_path, diar_segs, {})
+
+        # Emotion + Fraud
+        classifier      = _SHARED_EMOTION.get(self.gpu_id)
+        segment_emotions: List[str]      = []
+        speaker_stats:    Dict[str, dict] = {}
+        fraud_alerts:     List[Dict]      = []
+        fraud_cooldown:   Dict[str, int]  = {}
+        pitch_history:    Dict[str, Any]  = {}
+
+        logger.info("[Worker:%d] Memulai emotion+fraud detection (%d segmen)...",
+                    self.worker_id, len(aligned))
+
+        for seg in aligned:
+            if is_hallucination(seg.text):
+                segment_emotions.append("NETRAL")
+                accum_speaker_stats(speaker_stats, seg.speaker, "NETRAL")
+                continue
+
+            tmp_seg_wav = extract_single_segment_audio(
+                audio_path, seg.start, seg.end, seg.speaker)
+
+            seg_dur     = seg.end - seg.start
+            in_cooldown = fraud_cooldown.get(seg.speaker, 0) > 0
+            if in_cooldown:
+                fraud_cooldown[seg.speaker] -= 1
+
+            if DSP_FRAUD_ENABLED:
+                if tmp_seg_wav and seg_dur >= DSP_FRAUD_MIN_DUR_SEC and not in_cooldown:
+                    try:
+                        dsp_result = analyze_gender_and_fraud_dsp(
+                            seg.speaker, tmp_seg_wav, pitch_history,
+                            seg_timestamp=seg.start,
+                        )
+                        if "suspect_fraud" in dsp_result:
+                            fraud_alerts.append({
+                                "speaker":   seg.speaker,
+                                "timestamp": format_time(seg.start),
+                                "type":      "pitch_unstable" if "unstable" in dsp_result
+                                             else "pitch_jump",
+                                "detail":    dsp_result,
+                            })
+                            fraud_cooldown[seg.speaker] = DSP_FRAUD_COOLDOWN_SEGS
+                            logger.warning("[Fraud] %s @ %s: %s", seg.speaker,
+                                           format_time(seg.start), dsp_result)
+                    except Exception as e:
+                        logger.warning("[Fraud/DSP] Error: %s", e)
+                elif tmp_seg_wav and seg_dur < DSP_FRAUD_MIN_DUR_SEC:
+                    try:
+                        analyze_gender_and_fraud_dsp(
+                            seg.speaker, tmp_seg_wav, pitch_history,
+                            seg_timestamp=seg.start)
+                    except Exception:
+                        pass
+
+            if tmp_seg_wav and classifier is not None:
+                try:
+                    results     = classifier(tmp_seg_wav)
+                    emo_metrics: Dict[str, float] = {}
+                    for res in results:
+                        lbl = res["label"].lower().strip()
+                        if "arousal"   in lbl: emo_metrics["arousal"]   = float(res["score"])
+                        elif "dominance" in lbl: emo_metrics["dominance"] = float(res["score"])
+                        elif "valence"   in lbl: emo_metrics["valence"]   = float(res["score"])
+                    for key in ("arousal", "dominance", "valence"):
+                        emo_metrics.setdefault(key, 0.5)
+                    conclusion = get_telemarketing_conclusion(emo_metrics)
+                except Exception as e:
+                    logger.warning("[Emotion/seg] Error: %s", e)
+                    conclusion = "NETRAL"
+                finally:
+                    self.cleanup_temp_file(tmp_seg_wav)
+            else:
+                if tmp_seg_wav:
+                    self.cleanup_temp_file(tmp_seg_wav)
+                conclusion = "NETRAL"
+
+            segment_emotions.append(conclusion)
+            accum_speaker_stats(speaker_stats, seg.speaker, conclusion)
+
+        # Talk-time
+        talk_time = compute_talk_time(aligned, audio_path)
+        logger.info("[TalkTime] %s", talk_time)
+        if fraud_alerts:
+            logger.warning("[Fraud] Total alerts: %d", len(fraud_alerts))
+
+        return {
+            "speaker_genders":  gender_map,
+            "segment_emotions": segment_emotions,
+            "speaker_stats":    speaker_stats,
+            "fraud_alerts":     fraud_alerts,
+            "talk_time":        talk_time,
         }
 
     def transcribe_simple_complete(

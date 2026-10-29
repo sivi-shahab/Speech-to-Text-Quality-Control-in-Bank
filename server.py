@@ -32,7 +32,7 @@ import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from routes import speech_routes, diagnostics_routes, webhook_callback_routes
+from routes import speech_routes, diagnostics_routes, webhook_callback_routes, elevenlabs_stt_routes
 from services.stt_singleton import get_stt, clear_instance
 from services.tmp_cleanup import TMP_CLEANUP_ENABLED, periodic_tmp_cleanup
 from utils.vars import PORT
@@ -150,6 +150,11 @@ def get_stt_instance(request: Request):
 # =================================================================
 app.include_router(
     speech_routes.router,
+    prefix = "/api/v1",
+    tags   = ["speech"],
+)
+app.include_router(
+    elevenlabs_stt_routes.router,
     prefix = "/api/v1",
     tags   = ["speech"],
 )

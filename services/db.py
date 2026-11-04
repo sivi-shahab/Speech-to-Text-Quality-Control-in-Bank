@@ -311,54 +311,74 @@ def get_current_cc_scmcustp(cust_id_nbr: str) -> Optional[Dict[str, Any]]:
         return None
     try:
         with conn.cursor() as cursor:
+            # [04 Nov 2026] Satu CUST_ID_NBR bisa punya >1 baris.
+            # Ambil yang paling baru dimaintain: urut CUST_DATE_MAINT
+            # (hanya yang format YYYYMMDD valid), lalu CUST_TIME_MAINT, lalu
+            # CUST_NBR -- bukan LIMIT 1 tanpa ORDER BY yang hasilnya acak.
             query = """
-                SELECT
-                    "CUST_NBR", "CUST_OPER_CODE", "CUST_TYPE", "CUST_LOCAL_NAME",
-                    "CUST_ADDR1", "CUST_ADDR2", "CUST_ADD_CITY", "CUST_ADD_PROVINCE",
-                    "CUST_ADD_ZIPCODE", "CUST_PHONE", "CUST_RES_TYPE",
-                    "CUST_RES_PERIOD", "CUST_SEX", "CUST_MARITAL_ST",
-                    "CUST_QUALIFICATION", "CUST_ID_NBR", "CUST_DTE_BIRTH",
-                    "CUST_MOM_NAME", "CUST_WORK_ID", "CUST_NATIONALITY",
-                    "CUST_SUPP_RLNSHIP", "CUST_EMP_NAME", "CUST_EMP_ADDR1",
-                    "CUST_EMP_ADDR2", "CUST_EMP_ADDR3", "CUST_EMP_ADDR4",
-                    "CUST_EMP_CITY", "CUST_EMP_ZIP", "CUST_OCC_CODE",
-                    "CUST_OCC_PER", "CUST_EMP_PHONE", "CUST_ANN_SALARY",
-                    "CUST_OTH_INCOME", "CUST_GRLNSHIP", "CUST_GLOCAL_NAME",
-                    "CUST_GENG_NAME", "CUST_GADDR1", "CUST_GADDR2",
-                    "CUST_GADDR3", "CUST_GADDR4", "CUST_GADD_CITY",
-                    "CUST_GADD_PROVINCE", "CUST_GADD_ZIPCODE", "CUST_GPHONE",
-                    "CUST_GSEX", "CUST_GMARITAL_ST", "CUST_GQUALIFICATION",
-                    "CUST_GID_NBR", "CUST_PLC_BIRTH", "CUST_GDTE_BIRTH",
-                    "CUST_GWORK_ID", "CUST_GEMP_NAME", "CUST_GEMP_ADDR1",
-                    "CUST_GEMP_ADDR2", "CUST_GEMP_ZIP", "CUST_GOCC_CODE",
-                    "CUST_GOCC_PER", "CUST_GEMP_PHONE", "CUST_GANN_SALARY",
-                    "CUST_MADDR1", "CUST_MADDR2", "CUST_MADD_CITY",
-                    "CUST_MADD_PROVINCE", "CUST_MADD_ZIPCODE", "CUST_CNAME",
-                    "CUST_CORP_EMBOSS_NAME", "CUST_CPHONE", "CUST_CREG_DATE",
-                    "CUST_CREG_NBR", "CUST_CBUSINESS", "CUST_CBANK",
-                    "CUST_CBANK_ACCT", "CUST_CCONTACT", "CUST_COLLECTOR",
-                    "CUST_MEMO", "CUST_CRLIMIT", "CUST_AVAIL_CREDIT",
-                    "CUST_CASH_LIMIT", "CUST_AVAIL_CASH", "CUST_TEMP_CRLIMIT",
-                    "CUST_PERM_CRLIMIT", "CUST_DATE_TEMP_CRLIMIT_EFF",
-                    "CUST_DATE_TEMP_CRLIMIT_EXP", "CUST_CURR_CODE",
-                    "CUST_ADDR3", "CUST_ADDR4", "CUST_MADDR3", "CUST_MADDR4",
-                    "CUST_EMAIL_ADDR", "CUST_MOBILE_PHONE", "CUST_ADDR_CODE",
-                    "CUST_FILE_BUFFER", "CUST_INSTL_LIMIT", "CUST_AVAIL_INSTL",
-                    "CUST_STDALN_INSTL", "CUST_AVAIL_STDALN_INS", "CUST_NODE_ID",
-                    "CUST_FAMILY_SIZE", "CUST_SPOUSE_NAME", "CUST_TAX_ID",
-                    "CUST_DIN", "CUST_TITLE", "CUST_CR_CARD1",
-                    "CUST_CR_CARD_LMT1", "CUST_CR_CARD2", "CUST_CR_CARD_LMT2",
-                    "CUST_CIF", "CUST_HOME_OWNSHP", "CUST_DATE_MAINT",
-                    "CUST_USER_MAINT", "CUST_TIME_MAINT", "CUST_FILE_DATE"
-                FROM dashboard.current_cc_scmcustp
-                WHERE TRIM("CUST_ID_NBR") = %s
-                LIMIT 1;
+                WITH ranked AS (
+                    SELECT
+                        "CUST_NBR", "CUST_OPER_CODE", "CUST_TYPE", "CUST_LOCAL_NAME",
+                        "CUST_ADDR1", "CUST_ADDR2", "CUST_ADD_CITY", "CUST_ADD_PROVINCE",
+                        "CUST_ADD_ZIPCODE", "CUST_PHONE", "CUST_RES_TYPE",
+                        "CUST_RES_PERIOD", "CUST_SEX", "CUST_MARITAL_ST",
+                        "CUST_QUALIFICATION", "CUST_ID_NBR", "CUST_DTE_BIRTH",
+                        "CUST_MOM_NAME", "CUST_WORK_ID", "CUST_NATIONALITY",
+                        "CUST_SUPP_RLNSHIP", "CUST_EMP_NAME", "CUST_EMP_ADDR1",
+                        "CUST_EMP_ADDR2", "CUST_EMP_ADDR3", "CUST_EMP_ADDR4",
+                        "CUST_EMP_CITY", "CUST_EMP_ZIP", "CUST_OCC_CODE",
+                        "CUST_OCC_PER", "CUST_EMP_PHONE", "CUST_ANN_SALARY",
+                        "CUST_OTH_INCOME", "CUST_GRLNSHIP", "CUST_GLOCAL_NAME",
+                        "CUST_GENG_NAME", "CUST_GADDR1", "CUST_GADDR2",
+                        "CUST_GADDR3", "CUST_GADDR4", "CUST_GADD_CITY",
+                        "CUST_GADD_PROVINCE", "CUST_GADD_ZIPCODE", "CUST_GPHONE",
+                        "CUST_GSEX", "CUST_GMARITAL_ST", "CUST_GQUALIFICATION",
+                        "CUST_GID_NBR", "CUST_PLC_BIRTH", "CUST_GDTE_BIRTH",
+                        "CUST_GWORK_ID", "CUST_GEMP_NAME", "CUST_GEMP_ADDR1",
+                        "CUST_GEMP_ADDR2", "CUST_GEMP_ZIP", "CUST_GOCC_CODE",
+                        "CUST_GOCC_PER", "CUST_GEMP_PHONE", "CUST_GANN_SALARY",
+                        "CUST_MADDR1", "CUST_MADDR2", "CUST_MADD_CITY",
+                        "CUST_MADD_PROVINCE", "CUST_MADD_ZIPCODE", "CUST_CNAME",
+                        "CUST_CORP_EMBOSS_NAME", "CUST_CPHONE", "CUST_CREG_DATE",
+                        "CUST_CREG_NBR", "CUST_CBUSINESS", "CUST_CBANK",
+                        "CUST_CBANK_ACCT", "CUST_CCONTACT", "CUST_COLLECTOR",
+                        "CUST_MEMO", "CUST_CRLIMIT", "CUST_AVAIL_CREDIT",
+                        "CUST_CASH_LIMIT", "CUST_AVAIL_CASH", "CUST_TEMP_CRLIMIT",
+                        "CUST_PERM_CRLIMIT", "CUST_DATE_TEMP_CRLIMIT_EFF",
+                        "CUST_DATE_TEMP_CRLIMIT_EXP", "CUST_CURR_CODE",
+                        "CUST_ADDR3", "CUST_ADDR4", "CUST_MADDR3", "CUST_MADDR4",
+                        "CUST_EMAIL_ADDR", "CUST_MOBILE_PHONE", "CUST_ADDR_CODE",
+                        "CUST_FILE_BUFFER", "CUST_INSTL_LIMIT", "CUST_AVAIL_INSTL",
+                        "CUST_STDALN_INSTL", "CUST_AVAIL_STDALN_INS", "CUST_NODE_ID",
+                        "CUST_FAMILY_SIZE", "CUST_SPOUSE_NAME", "CUST_TAX_ID",
+                        "CUST_DIN", "CUST_TITLE", "CUST_CR_CARD1",
+                        "CUST_CR_CARD_LMT1", "CUST_CR_CARD2", "CUST_CR_CARD_LMT2",
+                        "CUST_CIF", "CUST_HOME_OWNSHP", "CUST_DATE_MAINT",
+                        "CUST_USER_MAINT", "CUST_TIME_MAINT", "CUST_FILE_DATE",
+                        ROW_NUMBER() OVER (
+                            PARTITION BY TRIM("CUST_ID_NBR")
+                            ORDER BY
+                                CASE
+                                    WHEN btrim("CUST_DATE_MAINT"::text) ~ '^(19|20)[0-9]{6}$'
+                                    THEN btrim("CUST_DATE_MAINT"::text)
+                                END DESC NULLS LAST,
+                                lpad(btrim("CUST_TIME_MAINT"::text), 8, '0') DESC NULLS LAST,
+                                "CUST_NBR" DESC
+                        ) AS rn
+                    FROM dashboard.current_cc_scmcustp
+                    WHERE TRIM("CUST_ID_NBR") = %s
+                )
+                SELECT *
+                FROM ranked
+                WHERE rn = 1;
             """
             cursor.execute(query, (cust_id_nbr,))
             row = cursor.fetchone()
             if not row:
                 return None
-            return _row_to_dict(cursor, row)
+            data = _row_to_dict(cursor, row)
+            data.pop("rn", None)  # kolom bantu ROW_NUMBER, bukan data customer
+            return data
     except Exception as e:
         logger.error("[DB ERROR] Gagal query current_cc_scmcustp cust_id_nbr=%s: %s", cust_id_nbr, e)
         return None

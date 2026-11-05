@@ -29,7 +29,10 @@ import logging
 from fastapi import APIRouter, HTTPException
 from services.db import (
     get_campaign_cashline_ntb,
+    get_campaign_new_to_bank_eksternal,
     get_current_cc_scmcustp,
+    get_newlos_data_mob,
+    get_newlos_request,
     save_cashline_ntb_asscend_cache,
     get_cashline_ntb_asscend_cache,
 )
@@ -150,7 +153,64 @@ async def get_cashline_ntb_asscend_cached(result_id: str):
     return pg_hit
 
 
+@router.get("/campaign/new-to-bank-eksternal/{result_id}")
+async def get_new_to_bank_eksternal(result_id: str):
+    """
+    Ambil 1 baris data campaign dari dashboard.campaign_new_to_bank_eksternal
+    berdasarkan result_id. Tanpa cache dan tanpa lookup customer.
+
+    Response:
+        {"campaign": {...semua kolom campaign_new_to_bank_eksternal...}}
+    """
+    campaign_data = get_campaign_new_to_bank_eksternal(result_id)
+    if campaign_data is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Data campaign new-to-bank eksternal tidak ditemukan untuk result_id={result_id}",
+        )
+    return {"campaign": campaign_data}
+
+
+@router.get("/campaign/newlos-data-mob/{dok_tl}")
+async def get_newlos_data_mob_endpoint(dok_tl: str):
+    """
+    Ambil 1 baris data dari dashboard.newlos_data_mob berdasarkan dok_tl.
+    Tanpa cache dan tanpa lookup customer.
+
+    Response:
+        {"newlos": {...semua kolom newlos_data_mob...}}
+    """
+    newlos_data = get_newlos_data_mob(dok_tl)
+    if newlos_data is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Data newlos_data_mob tidak ditemukan untuk dok_tl={dok_tl}",
+        )
+    return {"newlos": newlos_data}
+
+
+@router.get("/campaign/newlos-request/{numerator}")
+async def get_newlos_request_endpoint(numerator: str):
+    """
+    Ambil 1 baris data dari dashboard.newlos_request berdasarkan numerator.
+    Tanpa cache dan tanpa lookup customer.
+
+    Response:
+        {"newlos_request": {...semua kolom newlos_request...}}
+    """
+    request_data = get_newlos_request(numerator)
+    if request_data is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Data newlos_request tidak ditemukan untuk numerator={numerator}",
+        )
+    return {"newlos_request": request_data}
+
+
 # --- REGISTRASI (di main.py / tempat include_router Aplikasi A) -----------------
 # from routes import campaign_routes
 # app.include_router(campaign_routes.router)   # -> /campaign/cashline-ntb/{result_id}
 #                                                  /campaign/cashline-ntb-asscend/{result_id}
+#                                                  /campaign/new-to-bank-eksternal/{result_id}
+#                                                  /campaign/newlos-data-mob/{dok_tl}
+#                                                  /campaign/newlos-request/{numerator}

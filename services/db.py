@@ -289,6 +289,295 @@ def get_campaign_cashline_ntb(result_id: str) -> Optional[Dict[str, Any]]:
             db_pool.putconn(conn)
 
 
+def get_campaign_new_to_bank_eksternal(result_id: str) -> Optional[Dict[str, Any]]:
+    """
+    [NEW] Ambil 1 baris data campaign dari dashboard.campaign_new_to_bank_eksternal
+    berdasarkan result_id. Pola sama dengan get_campaign_cashline_ntb():
+    kolom ber-tanda "-" diapit petik ganda, koneksi via _get_working_conn().
+    """
+    if db_pool is None:
+        logger.warning("[DB] db_pool tidak tersedia untuk get_campaign_new_to_bank_eksternal")
+        return None
+
+    conn = _get_working_conn()
+    if conn is None:
+        return None
+    try:
+        with conn.cursor() as cursor:
+            query = """
+                SELECT
+                    result_id, prospect_id, customer_id, file_id, cust_name,
+                    agent_id, submit_time, qc_id, approve_time, kecamatan,
+                    "status-perkawinan", "nama-perusahaan", "alamat-ktp",
+                    "handphone-keluarga-dekat", "nama-keluarga-dekat",
+                    "data-kartu-kredit-lainnya-nama-bank", "kota-ktp", rt,
+                    "kodepos-ktp", "nama-lengkap-sesuai-ktp",
+                    "alamat-perusahaan-kodepos", "nama-gadis-ibu-kandung", rw,
+                    "data-dilengkapi-oleh", estatement, "telephone-perusahaan-ext",
+                    jabatan, pendidikan, "source-code", "bidang-usaha",
+                    "tanggal-lahir", "alamat-perusahaan-kota", "lama-bekerjausaha",
+                    "kecamatan-ktp", memo, "auto-pay-no-rekening-bank-mega",
+                    "tempat-lahir", "auto-pay-type", pekerjaan,
+                    "alamat-tagihan-bulanan", "no-ktppasporkitas",
+                    "alamat-perusahaan", "jenis-kelamin", "telepon-rumah",
+                    "rt-ktp", "penghasilan-kotor-pertahun", "rw-ktp",
+                    "email-address", "kelurahan-ktp", kelurahan,
+                    "data-kartu-kredit-lainnya-no-kartu", kodepos, handphone,
+                    "telephone-perusahaan", "alamat-pengiriman-kartu",
+                    "alamat-tempat-tinggal-saat-ini", kota, "no-npwp", bagian,
+                    "jenis-kartu-yang-dikehendaki", "is-send-message",
+                    "no-ktpkitas", "alamat-ktp-1", "alamat-perusahaan-1",
+                    "alamat-tinggal-saat-ini-1", "penghasilan-kotor-perbulan",
+                    "alamat-ktp-2", "alamat-perusahaan-2",
+                    "alamat-tinggal-saat-ini-2", "persetujuan-sharing-data",
+                    "kantor-provinsi-new", "alamat-rumah-1-new",
+                    "alamat-rumah-2-new", "rumah-rt-new", "rumah-rw-new",
+                    "rumah-provinsi-new", "rumah-kabupatenkota-new",
+                    "rumah-kecamatan-new", "rumah-kelurahan-new",
+                    "rumah-kode-pos-new", "alamat-kantor-1-new",
+                    "alamat-kantor-2-new", "kantor-kabupatenkota-new",
+                    "kantor-kecamatan-new", "kantor-kelurahan-new",
+                    "kantor-kode-pos-new", "telepon-kantor", "telepon-kantor-ext",
+                    "kartu-kredit-bank-lain", "nomor-kartu-kredit-bank-lain",
+                    "persetujuan-data-nasabah", "kartu-kredit-yang-dikehendaki",
+                    privyscore, kewarganegaraan, "pendaftaran-credit-shield",
+                    "send-mail-to", "send-message-to", "send-message",
+                    "full-name-supplektp-1-new", "mobile-phone-supple-1-new",
+                    "nik-supple-1-new", "tanggal-lahir-supple-1-new",
+                    "jenis-kelamin-1-new", "hub-status-keluarga-1-new",
+                    "email-supple-1-new", "nama-ibu-kandung-supple-1-new",
+                    "pembatasan-limit-1-new",
+                    "full-name-supplektp-2-new", "mobile-phone-supple-2-new",
+                    "nik-supple-2-new", "tanggal-lahir-supple-2-new",
+                    "jenis-kelamin-2-new", "hub-status-keluarga-2-new",
+                    "email-supple-2-new", "nama-ibu-kandung-supple-2-new",
+                    "pembatasan-limit-2-new",
+                    "full-name-supplektp-3-new", "mobile-phone-supple-3-new",
+                    "nik-supple-3-new", "tanggal-lahir-supple-3-new",
+                    "jenis-kelamin-3-new", "hub-status-keluarga-3-new",
+                    "email-supple-3-new", "nama-ibu-kandung-supple-3-new",
+                    "pembatasan-limit-3-new",
+                    "full-name-supplektp-4-new", "mobile-phone-supple-4-new",
+                    "nik-supple-4-new", "tanggal-lahir-supple-4-new",
+                    "jenis-kelamin-4-new", "hub-status-keluarga-4-new",
+                    "email-supple-4-new", "nama-ibu-kandung-supple-4-new",
+                    "pembatasan-limit-4-new",
+                    "link-foto-1", "link-foto-2", "link-foto-3", "link-foto-4",
+                    "checklist-supplement", "supplement-1-chk",
+                    "supplement-2-chk", "supplement-3-chk", "supplement-4-chk",
+                    "consent-nasabah"
+                FROM dashboard.campaign_new_to_bank_eksternal
+                WHERE result_id = %s
+                LIMIT 1;
+            """
+            cursor.execute(query, (result_id,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return _row_to_dict(cursor, row)
+    except Exception as e:
+        logger.error(
+            "[DB ERROR] Gagal query campaign_new_to_bank_eksternal result_id=%s: %s",
+            result_id, e,
+        )
+        return None
+    finally:
+        if conn:
+            db_pool.putconn(conn)
+
+
+def get_newlos_data_mob(dok_tl: str) -> Optional[Dict[str, Any]]:
+    """
+    [NEW] Ambil 1 baris data dari dashboard.newlos_data_mob berdasarkan
+    dok_tl. Pola sama dengan get_campaign_cashline_ntb(): koneksi via
+    _get_working_conn(), hasil di-map ke dict lewat _row_to_dict().
+    Kolom "data", "document", "name" diapit petik ganda (nama rawan
+    bentrok dengan keyword SQL).
+    """
+    if db_pool is None:
+        logger.warning("[DB] db_pool tidak tersedia untuk get_newlos_data_mob")
+        return None
+
+    conn = _get_working_conn()
+    if conn is None:
+        return None
+    try:
+        with conn.cursor() as cursor:
+            query = """
+                SELECT
+                    dok_tl, ad_name, ad_paym, ad_rek, alamat1, alamat2,
+                    alm1_alt, alm2_alt, alm_psbl, alm_skr, alm_skr2,
+                    almkirim, almpers1, almpers2, almpsbl2, almtagih,
+                    analisa_cb, app_gift, assurance_close_date,
+                    assurance_staf, bagian, bank_staff_ref,
+                    basic_card_name, basic_card_no, basic_cn,
+                    batch_closing, bc, bidang, branch, bs_bank,
+                    bsm_card_no, camat, card_type, center_code, cif_pre,
+                    cl, close_date, community, company_profile,
+                    corporate_id, created_on, cust_no, "data",
+                    data_info, data_tl, dob, "document", document_info,
+                    dokumen, e_billing, email, email_staff_ref, exp_dt,
+                    fax_pers, fax_psbl, fc, flag_assurance,
+                    flag_assurance_error, flag_closing, flag_megabill,
+                    flag_ok, high_risk, hp, hp_skr, hp_staff_ref,
+                    hsl_ktr, hsl_tmb, hub_dg_bsc, hubungan, id_megabill,
+                    info_neg, j_rek_1, j_rek_2, jabatan, jenis_k,
+                    jml_tang, jml_tang_txt, kdpos, kdposskr, kdps_alt,
+                    kdpspers, kdpspsbl, kec_alt, kec_pers, kel_alt,
+                    kel_pers, kesesuaian_telp_lokasi, kk_bank1,
+                    kk_bank2, kk_bank3, kk_bln_1, kk_bln_2, kk_bln_3,
+                    kk_lmt_1, kk_lmt_2, kk_lmt_3, kk_no_1, kk_no_2,
+                    kk_no_3, kk_thn_1, kk_thn_2, kk_thn_3, kode_bill1,
+                    kode_bill10, kode_bill2, kode_bill3, kode_bill4,
+                    kode_bill5, kode_bill6, kode_bill7, kode_bill8,
+                    kode_bill9, kode_plg_bill1, kode_plg_bill10,
+                    kode_plg_bill2, kode_plg_bill3, kode_plg_bill4,
+                    kode_plg_bill5, kode_plg_bill6, kode_plg_bill7,
+                    kode_plg_bill8, kode_plg_bill9, kota, kota_alt,
+                    kota_skr, kotapers, kotapsbl, kredit_scoring,
+                    lama_bln, lama_thn, limit_kredit, lm_kr_bln,
+                    lm_kr_thn, lokasi_rumah_kantor, lurah, ms, nama_ibu,
+                    nama_kel, nama_plg_bill1, nama_plg_bill10,
+                    nama_plg_bill2, nama_plg_bill3, nama_plg_bill4,
+                    nama_plg_bill5, nama_plg_bill6, nama_plg_bill7,
+                    nama_plg_bill8, nama_plg_bill9, namapers,
+                    namapers_staff_ref, "name", nasabah, nik_staff_ref,
+                    nm_kartu, nm_psbl, no_doc, no_ktp, nomor_aplikasi,
+                    norek_1, norek_2, npwp, omzet, open_date, os, pc,
+                    pc2, pdidikan, pdk_lain, persetujuan_data, pkerjaan,
+                    pp, prescreen_komentar, priority_pass, proc_date,
+                    proc_id, processing_group, rating, recommen,
+                    recommen_no, recurring_program, rek_staff_ref,
+                    rekbank1, rekbank2, rt, rt_alt, rt_pers, rt_psbl,
+                    rt_skr, rw, rw_alt, rw_pers, rw_psbl, rw_skr,
+                    sales_code, sbr_hsl, shield_s, source_code, staf,
+                    staff_ref, stat_kwn, stat_rmh, t_camat, t_community,
+                    t_hp, t_hub, t_ibu, t_kdpos, t_kota, t_lurah,
+                    t_nm_krt, t_nm_lkp, t_no_ktp, t_tgllhr, t_tmplhr,
+                    talamat1, talamat2, tanda_tangan, tb_amount,
+                    tb_bank, tb_no_cc, tel2_rmh, tel2_skr, tel2pers,
+                    tel_pers, tel_psbl, telp_rmh, telp_skr, tgl_lhr,
+                    tgl_lhr_date, tgl_lhr_month, tgl_lhr_year, title,
+                    title_1, tjenis_k, tmp_lhr, transb_s, ttd_komite,
+                    ttelpers, ttelprmh, u_camat, u_hp, u_kdpos, u_kota,
+                    u_lurah, u_nm_lkp, ualamat1, ualamat2, ujenis_k,
+                    updated_on, usulan_cb, usulan_cb2, utelpers,
+                    utelprmh, via, w_note, wn, privyidscore,
+                    daate_created, provinsi_kantor, bank_rekening,
+                    limit_cc, limit_pencairan, nama_rekening,
+                    nomor_rekening, relasi_hp, relasi_kelurahan,
+                    relasi_phone, provinsi_rumah, transaction_id
+                FROM dashboard.newlos_data_mob
+                WHERE dok_tl = %s
+                LIMIT 1;
+            """
+            cursor.execute(query, (dok_tl,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return _row_to_dict(cursor, row)
+    except Exception as e:
+        logger.error("[DB ERROR] Gagal query newlos_data_mob dok_tl=%s: %s", dok_tl, e)
+        return None
+    finally:
+        if conn:
+            db_pool.putconn(conn)
+
+
+def get_newlos_request(numerator: str) -> Optional[Dict[str, Any]]:
+    """
+    [NEW] Ambil 1 baris data dari dashboard.newlos_request berdasarkan
+    numerator. Pola sama dengan get_newlos_data_mob(): koneksi via
+    _get_working_conn(), hasil di-map ke dict lewat _row_to_dict().
+    Kolom "source" diapit petik ganda (nama rawan bentrok dengan keyword SQL).
+    """
+    if db_pool is None:
+        logger.warning("[DB] db_pool tidak tersedia untuk get_newlos_request")
+        return None
+
+    conn = _get_working_conn()
+    if conn is None:
+        return None
+    try:
+        with conn.cursor() as cursor:
+            query = """
+                SELECT
+                    reff_id, advance_score, alamat_billing,
+                    alamat_kirim, alamat_kirim_code, apuppt, agent,
+                    asli_ri, auto_approve, image_found, bill_day,
+                    black_list_advance, branch, card_type, cbas_error,
+                    center_code, cif, cust_id, cust_name, cycle_code,
+                    data_process, data_promo, datecreated, dbr,
+                    derivative_income, desc_reject, dob, email,
+                    face_advance, file_ideb, flag_analyst, from_api,
+                    internal_score, internal_scorin_sid,
+                    internal_scoring_non_sid, limiit_cc, location_file,
+                    mom_name, npwp, numerator, pefindo_find,
+                    permutasi_id, phone, procode, promotion, recommen,
+                    recommen_no, reject_code, salary, salary_month,
+                    scoringslik, send_spot_check, slik_result, "source",
+                    source_code, stage, status, tanggungan, telco,
+                    telco_score, telp, time_send, type_debitur,
+                    type_income, type_kartu, type_spot_check, update_by,
+                    update_date, use_slik_cbas, user_approval,
+                    address_id, agregrasi_pefindo_id, cc_bank_lain,
+                    cc_lain, data_pefindo_id, decission_analyst_id,
+                    dukcapil_id, emergency_contact_id, job_id,
+                    kartu_tambahan, nads_id, nads_file, pengiriman,
+                    phone_ver_decision_id, product_cc_id, req_permutasi,
+                    response_stage2_id, rj_reason_id, score_id,
+                    deviation_reason, salary_annual, temp_limit,
+                    deviation_reason_dv_code, send_sms, limit_total,
+                    alamat_cabang, nama_cabang, user_prescreen,
+                    recontest, reject_desc, user_recontest,
+                    user_phonever, path_file, spotchech_home,
+                    spotchech_office, reject_system, score_liveness,
+                    path_file_local, last_user, dt_user_adm_phone,
+                    dt_user_admin_analyst, dt_user_analyst,
+                    dt_user_phonever, dt_user_preescreen,
+                    dt_user_spotcheck, track_aging, regional_id,
+                    kantor_spot, rumah_spot, regional, regid,
+                    privy_status, privy_send, instant_issuance, autopay,
+                    type_request, card_no, name_file_ascend,
+                    pending_error, persetujuan, nomorrekening,
+                    namarekening, bank_rekening, rekening_hold,
+                    corporate_id, nominalhold, data_recomender_id,
+                    autopaytype, tenor, surrogateincome, nads,
+                    blacklist_pep, type_biometric, status_kawin,
+                    jenis_kelamin, tmpt_lhr, kewarganegaraan_ocr,
+                    id_type, kewarganegaraan, gol_kewarganegaraan,
+                    no_id, jenis_kewarganegaraan, flag_pdf_pefindo,
+                    akki, scoring_sid, scoring_non_sid, flag_cl,
+                    limit_pencairan, result_flag_slik,
+                    privy_validate_otp, eureka_score, vida_biometric,
+                    alert_desc, score_pefindo, flag_lso, flag_deviasi,
+                    deviation_type, request_procode, customer_consent,
+                    is_emboss, shopee_score, credit_shield_product_code,
+                    flag_mcs, agregasi_kbij_id, score_kbij, slik_source,
+                    biometric_manual_score, biometric_manual_status,
+                    profile_risiko_kewarganegaraan,
+                    biometric_black_list, jenis_laporan, fin_account,
+                    aggregation_result_id, referal_code, kode_promo,
+                    cek_advance_score, count_cek_advance,
+                    multi_platform, gpd, vida_score, flag_cashline,
+                    plan_code, score_clik, slik_type
+                FROM dashboard.newlos_request
+                WHERE numerator = %s
+                LIMIT 1;
+            """
+            cursor.execute(query, (numerator,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            return _row_to_dict(cursor, row)
+    except Exception as e:
+        logger.error("[DB ERROR] Gagal query newlos_request numerator=%s: %s", numerator, e)
+        return None
+    finally:
+        if conn:
+            db_pool.putconn(conn)
+
+
 def get_current_cc_scmcustp(cust_id_nbr: str) -> Optional[Dict[str, Any]]:
     """
     [NEW] Ambil 1 baris data customer dari dashboard.current_cc_scmcustp

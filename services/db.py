@@ -659,7 +659,6 @@ def get_current_cc_scmcustp(cust_id_nbr: str) -> Optional[Dict[str, Any]]:
                         ) AS rn
                     FROM dashboard.current_cc_scmcustp
                     WHERE TRIM("CUST_ID_NBR") = %s
-                )
                 ),
                 -- [12 Nov 2026] Alamat rumah / kantor / surat dirakit dari baris
                 -- terbaru (rn = 1). Terjemahan Postgres dari query T-SQL asli:

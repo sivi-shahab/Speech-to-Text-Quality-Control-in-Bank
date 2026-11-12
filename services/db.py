@@ -657,16 +657,77 @@ def get_current_cc_scmcustp(cust_id_nbr: str) -> Optional[Dict[str, Any]]:
                     FROM dashboard.current_cc_scmcustp
                     WHERE TRIM("CUST_ID_NBR") = %s
                 )
-                SELECT *
-                FROM ranked
-                WHERE rn = 1;
+                ),
+                -- [12 Nov 2026] Alamat rumah / kantor / surat dirakit dari baris
+                -- terbaru (rn = 1). Terjemahan Postgres dari query T-SQL asli:
+                -- LTRIM(RTRIM())->btrim, ISNULL(a+' ')->concat_ws (lewati NULL/kosong).
+                cust AS (
+                    SELECT
+                        r.*,
+                        UPPER(btrim(r."CUST_ADDR_CODE"::text)) AS addr_flg,
+                        NULLIF(btrim(concat_ws(' ',
+                            NULLIF(btrim(r."CUST_ADDR1"::text), ''),
+                            NULLIF(btrim(r."CUST_ADDR2"::text), ''),
+                            NULLIF(btrim(r."CUST_ADDR3"::text), ''),
+                            NULLIF(btrim(r."CUST_ADDR4"::text), ''))), '') AS rumah_alamat,
+                        NULLIF(btrim(r."CUST_ADD_CITY"::text), '')    AS rumah_kota,
+                        NULLIF(btrim(r."CUST_ADD_ZIPCODE"::text), '') AS rumah_kodepos,
+                        NULLIF(btrim(concat_ws(' ',
+                            NULLIF(btrim(r."CUST_EMP_ADDR1"::text), ''),
+                            NULLIF(btrim(r."CUST_EMP_ADDR2"::text), ''),
+                            NULLIF(btrim(r."CUST_EMP_ADDR3"::text), ''),
+                            NULLIF(btrim(r."CUST_EMP_ADDR4"::text), ''))), '') AS kantor_alamat,
+                        NULLIF(btrim(r."CUST_EMP_CITY"::text), '')    AS kantor_kota,
+                        NULLIF(btrim(r."CUST_EMP_ZIP"::text), '')     AS kantor_kodepos,
+                        NULLIF(btrim(concat_ws(' ',
+                            NULLIF(btrim(r."CUST_MADDR1"::text), ''),
+                            NULLIF(btrim(r."CUST_MADDR2"::text), ''),
+                            NULLIF(btrim(r."CUST_MADDR3"::text), ''),
+                            NULLIF(btrim(r."CUST_MADDR4"::text), ''))), '') AS surat_alamat,
+                        NULLIF(btrim(r."CUST_MADD_CITY"::text), '')    AS surat_kota,
+                        NULLIF(btrim(r."CUST_MADD_ZIPCODE"::text), '') AS surat_kodepos
+                    FROM ranked r
+                    WHERE r.rn = 1
+                )
+                SELECT
+                    c.*,
+                    c.addr_flg                                AS "ADDR_FLG",
+                    c.rumah_alamat                            AS "RUMAH_ALAMAT",
+                    c.rumah_kota                              AS "RUMAH_KOTA",
+                    c.rumah_kodepos                           AS "RUMAH_KODEPOS",
+                    -- ALAMAT BILLING (ikut flag; flag A tapi alamat surat kosong -> rumah)
+                    CASE
+                        WHEN c.addr_flg = 'C' THEN 'KANTOR'
+                        WHEN c.addr_flg = 'A' AND c.surat_alamat IS NOT NULL THEN 'SURAT/ALTERNATIF'
+                        ELSE 'RUMAH'
+                    END                                       AS "BILLING_SUMBER",
+                    CASE
+                        WHEN c.addr_flg = 'C' THEN c.kantor_alamat
+                        WHEN c.addr_flg = 'A' AND c.surat_alamat IS NOT NULL THEN c.surat_alamat
+                        ELSE c.rumah_alamat
+                    END                                       AS "BILLING_ALAMAT",
+                    CASE
+                        WHEN c.addr_flg = 'C' THEN c.kantor_kota
+                        WHEN c.addr_flg = 'A' AND c.surat_alamat IS NOT NULL THEN c.surat_kota
+                        ELSE c.rumah_kota
+                    END                                       AS "BILLING_KOTA",
+                    CASE
+                        WHEN c.addr_flg = 'C' THEN c.kantor_kodepos
+                        WHEN c.addr_flg = 'A' AND c.surat_alamat IS NOT NULL THEN c.surat_kodepos
+                        ELSE c.rumah_kodepos
+                    END                                       AS "BILLING_KODEPOS"
+                FROM cust c;
             """
             cursor.execute(query, (cust_id_nbr,))
             row = cursor.fetchone()
             if not row:
                 return None
             data = _row_to_dict(cursor, row)
-            data.pop("rn", None)  # kolom bantu ROW_NUMBER, bukan data customer
+            # kolom bantu (ROW_NUMBER & alias huruf kecil dari CTE cust), bukan data customer
+            for aux in ("rn", "addr_flg", "rumah_alamat", "rumah_kota", "rumah_kodepos",
+                        "kantor_alamat", "kantor_kota", "kantor_kodepos",
+                        "surat_alamat", "surat_kota", "surat_kodepos"):
+                data.pop(aux, None)
             return data
     except Exception as e:
         logger.error("[DB ERROR] Gagal query current_cc_scmcustp cust_id_nbr=%s: %s", cust_id_nbr, e)
@@ -937,7 +998,8 @@ _ASSCEND_CASHLINE_FIELDS = [
     "jenis-kartu-yang-dikehendaki", "pendaftaran-credit-shield",
 ]
 
-# 18 field customer (Ascend) yang benar-benar dipakai App B.
+# 18 field customer (Ascend) + 8 field alamat rumah/billing hasil rakitan
+# get_current_cc_scmcustp() yang dipakai App B.
 _ASSCEND_CUSTOMER_FIELDS = [
     "CUST_ID_NBR",
     "CUST_DTE_BIRTH", "CUST_PLC_BIRTH", "CUST_MOM_NAME",
@@ -950,6 +1012,9 @@ _ASSCEND_CUSTOMER_FIELDS = [
 ]
 
 
+    "ADDR_FLG",
+    "RUMAH_ALAMAT", "RUMAH_KOTA", "RUMAH_KODEPOS",
+    "BILLING_SUMBER", "BILLING_ALAMAT", "BILLING_KOTA", "BILLING_KODEPOS",
 def _filter_fields(data: Optional[Dict[str, Any]], fields: list) -> Optional[Dict[str, Any]]:
     """Ambil cuma key yang ada di `fields` dari `data`. None -> None
     (bukan dict kosong -- supaya caller bisa bedakan 'tidak ada data sama

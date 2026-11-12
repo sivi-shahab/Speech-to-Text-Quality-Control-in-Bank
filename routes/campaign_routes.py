@@ -123,7 +123,7 @@ async def get_cashline_ntb_asscend_cached(result_id: str):
     Response:
         {
             "cashline": {...32 field terpilih...} atau null,
-            "customer": {...18 field terpilih...} atau null,
+            "customer": {...26 field terpilih...} atau null,
             "cached_at": "2026-07-20T12:34:56+00:00" (null kalau dari Redis)
         }
     """

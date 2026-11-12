@@ -175,7 +175,7 @@ def get_dynamic_prompt_from_db(ticket_id: str) -> Optional[str]:
     catatan di modul)."""
     if db_pool is None:
         return None
- 
+
     conn = None
     try:
         conn = db_pool.getconn()
@@ -386,10 +386,10 @@ def get_campaign_new_to_bank_eksternal(result_id: str) -> Optional[Dict[str, Any
             db_pool.putconn(conn)
 
 
-def get_newlos_data_mob(dok_tl: str) -> Optional[Dict[str, Any]]:
+def get_newlos_data_mob(no_ktp: str) -> Optional[Dict[str, Any]]:
     """
     [NEW] Ambil 1 baris data dari dashboard.newlos_data_mob berdasarkan
-    dok_tl. Pola sama dengan get_campaign_cashline_ntb(): koneksi via
+    no_ktp. Pola sama dengan get_campaign_cashline_ntb(): koneksi via
     _get_working_conn(), hasil di-map ke dict lewat _row_to_dict().
     Kolom "data", "document", "name" diapit petik ganda (nama rawan
     bentrok dengan keyword SQL).
@@ -468,16 +468,18 @@ def get_newlos_data_mob(dok_tl: str) -> Optional[Dict[str, Any]]:
                     nomor_rekening, relasi_hp, relasi_kelurahan,
                     relasi_phone, provinsi_rumah, transaction_id
                 FROM dashboard.newlos_data_mob
-                WHERE dok_tl = %s
+                -- TRIM dua sisi: no_ktp di tabel bisa ber-padding spasi,
+                -- input juga di-strip() supaya " 317..." tetap ketemu.
+                WHERE TRIM(no_ktp) = %s
                 LIMIT 1;
             """
-            cursor.execute(query, (dok_tl,))
+            cursor.execute(query, ((no_ktp or "").strip(),))
             row = cursor.fetchone()
             if not row:
                 return None
             return _row_to_dict(cursor, row)
     except Exception as e:
-        logger.error("[DB ERROR] Gagal query newlos_data_mob dok_tl=%s: %s", dok_tl, e)
+        logger.error("[DB ERROR] Gagal query newlos_data_mob no_ktp=%s: %s", no_ktp, e)
         return None
     finally:
         if conn:
@@ -562,10 +564,11 @@ def get_newlos_request(numerator: str) -> Optional[Dict[str, Any]]:
                     multi_platform, gpd, vida_score, flag_cashline,
                     plan_code, score_clik, slik_type
                 FROM dashboard.newlos_request
-                WHERE numerator = %s
+                -- TRIM dua sisi (index: idx_newlos_request_trim_numerator).
+                WHERE TRIM(numerator) = %s
                 LIMIT 1;
             """
-            cursor.execute(query, (numerator,))
+            cursor.execute(query, ((numerator or "").strip(),))
             row = cursor.fetchone()
             if not row:
                 return None
@@ -776,7 +779,7 @@ _RECORDING_TMS_SQL = """
            status_data, error_message, inserted_at, processed_at
     FROM dashboard.recording_tms_api
     WHERE load_date::date BETWEEN CURRENT_DATE - 1 AND CURRENT_DATE
-    AND context in ('CLENB', 'CLENTB')
+    AND context in ('CLENB', 'CLENTB', 'NTB002')
     ORDER BY tiket_id;
 """
 
@@ -1009,12 +1012,12 @@ _ASSCEND_CUSTOMER_FIELDS = [
     "CUST_ADDR1", "CUST_ADDR2", "CUST_ADD_CITY",
     "CUST_ADD_PROVINCE", "CUST_ADD_ZIPCODE",
     "CUST_CR_CARD1",
-]
-
-
     "ADDR_FLG",
     "RUMAH_ALAMAT", "RUMAH_KOTA", "RUMAH_KODEPOS",
     "BILLING_SUMBER", "BILLING_ALAMAT", "BILLING_KOTA", "BILLING_KODEPOS",
+]
+
+
 def _filter_fields(data: Optional[Dict[str, Any]], fields: list) -> Optional[Dict[str, Any]]:
     """Ambil cuma key yang ada di `fields` dari `data`. None -> None
     (bukan dict kosong -- supaya caller bisa bedakan 'tidak ada data sama
@@ -1152,6 +1155,183 @@ def get_cashline_ntb_asscend_cache(result_id: str) -> Optional[Dict[str, Any]]:
             }
     except Exception as e:
         logger.error("[DB ERROR] Gagal baca cache asscend result_id=%s: %s", result_id, e)
+        return None
+    finally:
+        if conn:
+            db_pool.putconn(conn)
+
+
+def get_current_nls_request_cc(numerator: str) -> list[Dict[str, Any]]:
+    """[NEW] Semua baris dashboard.current_nls_request_cc dengan
+    ``type_request = 'S'`` dan ``numerator`` = nilai yang diberikan.
+    Balik list of dict (kosong bila tak ada / pool tak tersedia / gagal --
+    sudah di-log).
+    """
+    if db_pool is None:
+        logger.warning("[DB] db_pool tidak tersedia untuk get_current_nls_request_cc")
+        return []
+    conn = _get_working_conn()
+    if conn is None:
+        return []
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT *
+                FROM dashboard.current_nls_request_cc
+                -- TRIM dua sisi (index: idx_current_nls_request_cc_trim_numerator,
+                -- lihat sql/current_nls_request_cc_index.sql).
+                WHERE type_request = 'S' AND TRIM(numerator) = %s;
+                """,
+                ((numerator or "").strip(),),
+            )
+            rows = cursor.fetchall()
+            return [_row_to_dict(cursor, row) for row in rows]
+    except Exception as e:
+        logger.error(
+            "[DB ERROR] Gagal query current_nls_request_cc numerator=%s: %s", numerator, e
+        )
+        return []
+    finally:
+        if conn:
+            db_pool.putconn(conn)
+
+
+# ---------------------------------------------------------------------------
+# [NEW] Gabungan NTB eksternal + LOS -- disimpan di dashboard."ntb-los".
+#   ntb_data         : SEMUA kolom dashboard.campaign_new_to_bank_eksternal (JSONB)
+#   customer_consent : dashboard.newlos_request.customer_consent
+#                      (numerator = result_id)
+#   persetujuan_data : dashboard.newlos_data_mob.persetujuan_data
+#                      (no_ktp = "no-ktpkitas" dari NTB eksternal)
+# Diisi (upsert) setiap kali /campaign/ntb-los/{result_id} dipanggil.
+# DDL tabel: sql/ntb_los.sql
+# ---------------------------------------------------------------------------
+
+def _json_safe(data: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Versi dict yang aman di-json.dumps() untuk SEMUA kolom (beda dengan
+    _filter_fields() yang cuma ambil field tertentu): str di-strip(),
+    Decimal -> str (presisi tetap), date/datetime/time -> isoformat()
+    (submit_time & approve_time di NTB eksternal bertipe timestamp).
+    Nilai lain dibiarkan apa adanya. None -> None."""
+    if data is None:
+        return None
+    import datetime
+    import decimal
+    out = {}
+    for k, v in data.items():
+        if isinstance(v, str):
+            out[k] = v.strip()
+        elif isinstance(v, decimal.Decimal):
+            out[k] = str(v)
+        elif isinstance(v, (datetime.date, datetime.datetime, datetime.time)):
+            out[k] = v.isoformat()
+        else:
+            out[k] = v
+    return out
+
+
+def save_ntb_los(
+    result_id: str,
+    ntb_data: Optional[Dict[str, Any]],
+    customer_consent: Optional[bool],
+    persetujuan_data: Optional[str],
+) -> Optional[Dict[str, Any]]:
+    """[NEW] Simpan (upsert by result_id) gabungan NTB eksternal + LOS ke
+    dashboard."ntb-los". Pola sama dengan save_cashline_ntb_asscend_cache():
+    best-effort -- caller TIDAK boleh gagal kalau ini return None.
+
+    Return dict yang disimpan ({"ntb": ..., "customer_consent": ...,
+    "persetujuan_data": ...}) kalau berhasil, None kalau gagal.
+    """
+    if db_pool is None:
+        logger.warning("[DB] db_pool tidak tersedia, skip simpan ntb-los untuk %s", result_id)
+        return None
+
+    safe_ntb = _json_safe(ntb_data)
+    if isinstance(persetujuan_data, str):
+        persetujuan_data = persetujuan_data.strip()
+
+    conn = _get_working_conn()
+    if conn is None:
+        return None
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO dashboard."ntb-los"
+                    (result_id, ntb_data, customer_consent, persetujuan_data, cached_at)
+                VALUES (%s, %s, %s, %s, now())
+                ON CONFLICT (result_id) DO UPDATE SET
+                    ntb_data         = EXCLUDED.ntb_data,
+                    customer_consent = EXCLUDED.customer_consent,
+                    persetujuan_data = EXCLUDED.persetujuan_data,
+                    cached_at        = EXCLUDED.cached_at;
+                """,
+                (
+                    result_id,
+                    Json(safe_ntb) if safe_ntb is not None else None,
+                    customer_consent,
+                    persetujuan_data,
+                ),
+            )
+        conn.commit()
+        return {
+            "ntb": safe_ntb,
+            "customer_consent": customer_consent,
+            "persetujuan_data": persetujuan_data,
+        }
+    except Exception as e:
+        logger.error("[DB ERROR] Gagal simpan ntb-los result_id=%s: %s", result_id, e)
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        return None
+    finally:
+        if conn:
+            db_pool.putconn(conn)
+
+
+def get_ntb_los_cache(result_id: str) -> Optional[Dict[str, Any]]:
+    """[NEW] Baca cache dari dashboard."ntb-los" untuk `result_id`. Return
+    None kalau belum pernah disimpan (artinya /campaign/ntb-los/{result_id}
+    belum pernah dipanggil untuk result_id ini) atau query gagal.
+
+    Return: {"ntb": {...semua kolom NTB eksternal...} | None,
+             "customer_consent": bool | None, "persetujuan_data": str | None,
+             "cached_at": "2026-...isoformat..."}.
+    """
+    if db_pool is None:
+        logger.warning("[DB] db_pool tidak tersedia untuk get_ntb_los_cache")
+        return None
+
+    conn = _get_working_conn()
+    if conn is None:
+        return None
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT ntb_data, customer_consent, persetujuan_data, cached_at
+                FROM dashboard."ntb-los"
+                WHERE result_id = %s
+                LIMIT 1;
+                """,
+                (result_id,),
+            )
+            row = cursor.fetchone()
+            if not row:
+                return None
+            ntb_data, customer_consent, persetujuan_data, cached_at = row
+            return {
+                "ntb": ntb_data,
+                "customer_consent": customer_consent,
+                "persetujuan_data": persetujuan_data,
+                "cached_at": cached_at.isoformat() if cached_at else None,
+            }
+    except Exception as e:
+        logger.error("[DB ERROR] Gagal baca cache ntb-los result_id=%s: %s", result_id, e)
         return None
     finally:
         if conn:

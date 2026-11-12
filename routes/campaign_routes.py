@@ -33,6 +33,9 @@ from services.db import (
     get_current_cc_scmcustp,
     get_newlos_data_mob,
     get_newlos_request,
+    get_current_nls_request_cc,
+    save_ntb_los,
+    get_ntb_los_cache,
     save_cashline_ntb_asscend_cache,
     get_cashline_ntb_asscend_cache,
 )
@@ -171,20 +174,22 @@ async def get_new_to_bank_eksternal(result_id: str):
     return {"campaign": campaign_data}
 
 
-@router.get("/campaign/newlos-data-mob/{dok_tl}")
-async def get_newlos_data_mob_endpoint(dok_tl: str):
+@router.get("/campaign/newlos-data-mob/{no_ktp}")
+async def get_newlos_data_mob_endpoint(no_ktp: str):
     """
-    Ambil 1 baris data dari dashboard.newlos_data_mob berdasarkan dok_tl.
+    Ambil 1 baris data dari dashboard.newlos_data_mob berdasarkan no_ktp.
     Tanpa cache dan tanpa lookup customer.
 
     Response:
         {"newlos": {...semua kolom newlos_data_mob...}}
     """
-    newlos_data = get_newlos_data_mob(dok_tl)
+    # NIK bisa berawalan/berakhiran spasi (lihat catatan 21 Okt 2026 di atas).
+    no_ktp = no_ktp.strip()
+    newlos_data = get_newlos_data_mob(no_ktp)
     if newlos_data is None:
         raise HTTPException(
             status_code=404,
-            detail=f"Data newlos_data_mob tidak ditemukan untuk dok_tl={dok_tl}",
+            detail=f"Data newlos_data_mob tidak ditemukan untuk no_ktp={no_ktp}",
         )
     return {"newlos": newlos_data}
 
@@ -198,6 +203,7 @@ async def get_newlos_request_endpoint(numerator: str):
     Response:
         {"newlos_request": {...semua kolom newlos_request...}}
     """
+    numerator = numerator.strip()
     request_data = get_newlos_request(numerator)
     if request_data is None:
         raise HTTPException(
@@ -207,10 +213,151 @@ async def get_newlos_request_endpoint(numerator: str):
     return {"newlos_request": request_data}
 
 
+@router.get("/campaign/nls-request-cc/{numerator}")
+def get_nls_request_cc_endpoint(numerator: str):
+    """
+    Ambil baris dashboard.current_nls_request_cc dengan type_request = 'S'
+    dan numerator = {numerator}. Tanpa cache. Tidak ada data -> 404.
+
+    Pakai `def` (bukan `async def`) supaya query DB yang blocking dijalankan
+    FastAPI di threadpool, tidak menahan event loop.
+
+    Response:
+        {"count": <n>, "items": [{...semua kolom current_nls_request_cc...}, ...]}
+    """
+    numerator = numerator.strip()
+    rows = get_current_nls_request_cc(numerator)
+    if not rows:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Data current_nls_request_cc tidak ditemukan untuk numerator={numerator}",
+        )
+    return {"count": len(rows), "items": rows}
+
+
+@router.get("/campaign/ntb-los/{result_id}")
+def get_ntb_los(result_id: str):
+    """
+    Gabungan 3 sumber, lalu disimpan (upsert) ke dashboard."ntb-los":
+      1. campaign_new_to_bank_eksternal (by result_id)    -> SEMUA kolom
+      2. newlos_request (numerator = result_id)           -> customer_consent
+      3. newlos_data_mob (no_ktp = "no-ktpkitas" dari #1) -> persetujuan_data
+
+    404 hanya kalau #1 tidak ketemu. #2/#3 tidak ketemu -> nilainya null
+    (di-log). Gagal simpan ke dashboard."ntb-los" TIDAK menggagalkan
+    response (cuma di-log), sama seperti /campaign/cashline-ntb.
+
+    `def` (bukan `async def`) -- 4 query DB blocking dijalankan di threadpool.
+
+    Response:
+        {
+            "ntb": {...semua kolom campaign_new_to_bank_eksternal...},
+            "customer_consent": true | false | null,
+            "persetujuan_data": "..." | null
+        }
+    """
+    ntb_data = get_campaign_new_to_bank_eksternal(result_id)
+    if ntb_data is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Data campaign new-to-bank eksternal tidak ditemukan untuk result_id={result_id}",
+        )
+
+    customer_consent = None
+    request_data = get_newlos_request(result_id)
+    if request_data is None:
+        logger.warning("[ntb-los] result_id=%s tidak ketemu di newlos_request (numerator)", result_id)
+    else:
+        customer_consent = request_data.get("customer_consent")
+
+    persetujuan_data = None
+    no_ktpkitas = (ntb_data.get("no-ktpkitas") or "").strip()
+    if not no_ktpkitas:
+        logger.warning("[ntb-los] result_id=%s tidak punya no-ktpkitas, skip newlos_data_mob", result_id)
+    else:
+        mob_data = get_newlos_data_mob(no_ktpkitas)
+        if mob_data is None:
+            logger.warning(
+                "[ntb-los] result_id=%s no-ktpkitas=%s tidak ketemu di newlos_data_mob",
+                result_id, no_ktpkitas,
+            )
+        else:
+            persetujuan_data = mob_data.get("persetujuan_data")
+            if isinstance(persetujuan_data, str):
+                persetujuan_data = persetujuan_data.strip()
+
+    # Simpan ke Postgres (L2) -- best-effort, TIDAK boleh gagalkan response utama.
+    saved = None
+    try:
+        saved = save_ntb_los(result_id, ntb_data, customer_consent, persetujuan_data)
+        if saved is None:
+            logger.warning("[ntb-los] gagal simpan ke dashboard.\"ntb-los\" untuk %s", result_id)
+    except Exception as e:
+        logger.error("[ntb-los] exception saat simpan ntb-los untuk %s: %s", result_id, e)
+
+    # Populate Redis (L1) dari hasil yang sudah JSON-safe, tanpa query ulang Postgres.
+    if saved is not None:
+        try:
+            redis_cache.set(result_id, saved, prefix=redis_cache.NTB_LOS_PREFIX)
+        except Exception as e:
+            logger.warning("[ntb-los] gagal populate Redis untuk %s: %s", result_id, e)
+
+    return {
+        "ntb": ntb_data,
+        "customer_consent": customer_consent,
+        "persetujuan_data": persetujuan_data,
+    }
+
+
+@router.get("/campaign/ntb-los-cached/{result_id}")
+def get_ntb_los_cached(result_id: str):
+    """
+    Baca gabungan NTB eksternal + LOS dari CACHE, TANPA query ke 3 tabel
+    sumber. Pola sama dengan /campaign/cashline-ntb-asscend/{result_id}:
+      1. Redis (L1, key "ntb-los:<result_id>") -- kalau hit, langsung balik.
+      2. Postgres (L2, dashboard."ntb-los") -- kalau hit, populate Redis.
+
+    404 kalau kedua lapis kosong -- caller fallback ke
+    /campaign/ntb-los/{result_id} (endpoint asli, sekaligus mengisi cache).
+
+    Response:
+        {
+            "ntb": {...semua kolom campaign_new_to_bank_eksternal...} | null,
+            "customer_consent": true | false | null,
+            "persetujuan_data": "..." | null,
+            "cached_at": "2026-...+07:00"   (tidak ada kalau hasil dari Redis)
+        }
+    """
+    redis_hit = redis_cache.get(result_id, prefix=redis_cache.NTB_LOS_PREFIX)
+    if redis_hit is not None:
+        return redis_hit
+
+    pg_hit = get_ntb_los_cache(result_id)
+    if pg_hit is None:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Belum ada cache ntb-los untuk result_id={result_id} -- "
+                f"panggil /campaign/ntb-los/{result_id} dulu (endpoint asli) "
+                "supaya cache-nya terisi."
+            ),
+        )
+
+    try:
+        redis_cache.set(result_id, pg_hit, prefix=redis_cache.NTB_LOS_PREFIX)
+    except Exception as e:
+        logger.warning("[ntb-los-cached] gagal populate Redis dari Postgres hit untuk %s: %s", result_id, e)
+
+    return pg_hit
+
+
 # --- REGISTRASI (di main.py / tempat include_router Aplikasi A) -----------------
 # from routes import campaign_routes
 # app.include_router(campaign_routes.router)   # -> /campaign/cashline-ntb/{result_id}
 #                                                  /campaign/cashline-ntb-asscend/{result_id}
 #                                                  /campaign/new-to-bank-eksternal/{result_id}
-#                                                  /campaign/newlos-data-mob/{dok_tl}
+#                                                  /campaign/newlos-data-mob/{no_ktp}
+#                                                  /campaign/nls-request-cc/sup
+#                                                  /campaign/ntb-los/{result_id}
+#                                                  /campaign/ntb-los-cached/{result_id}
 #                                                  /campaign/newlos-request/{numerator}

@@ -32,6 +32,8 @@ _REDIS_DB = int(os.getenv("REDIS_CACHE_DB", "1"))  # DB 1 -- BUKAN 0 (Celery pak
 _TTL_SEC = int(os.getenv("REDIS_CACHE_TTL_SEC", str(3600)))  # 1 jam
 
 _KEY_PREFIX = "cashline-ntb-asscend:"
+# [NEW] Prefix untuk cache gabungan NTB eksternal + LOS (dashboard."ntb-los").
+NTB_LOS_PREFIX = "ntb-los:"
 
 _client = None
 _client_init_failed = False
@@ -71,15 +73,18 @@ def _get_client():
         return None
 
 
-def get(result_id: str) -> Optional[Dict[str, Any]]:
+def get(result_id: str, prefix: str = _KEY_PREFIX) -> Optional[Dict[str, Any]]:
     """Baca dari Redis. Return None kalau cache miss ATAU Redis tidak
     tersedia -- caller HARUS fallback ke Postgres di kedua kasus ini,
-    tidak bisa membedakan mana yang terjadi (dan memang tidak perlu)."""
+    tidak bisa membedakan mana yang terjadi (dan memang tidak perlu).
+
+    `prefix` default = cache cashline-ntb-asscend (perilaku lama);
+    pakai NTB_LOS_PREFIX untuk cache ntb-los."""
     client = _get_client()
     if client is None:
         return None
     try:
-        raw = client.get(_KEY_PREFIX + result_id)
+        raw = client.get(prefix + result_id)
         if raw is None:
             return None
         return json.loads(raw)
@@ -88,7 +93,7 @@ def get(result_id: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-def set(result_id: str, data: Dict[str, Any]) -> None:
+def set(result_id: str, data: Dict[str, Any], prefix: str = _KEY_PREFIX) -> None:
     """Simpan ke Redis dengan TTL 1 hari. Best-effort -- gagal diam-diam
     (di-log, TIDAK raise) supaya caller tidak pernah gagal gara-gara
     Redis, cuma gara-gara Postgres (yang memang sumber kebenaran)."""
@@ -96,6 +101,6 @@ def set(result_id: str, data: Dict[str, Any]) -> None:
     if client is None:
         return
     try:
-        client.setex(_KEY_PREFIX + result_id, _TTL_SEC, json.dumps(data))
+        client.setex(prefix + result_id, _TTL_SEC, json.dumps(data))
     except Exception as e:
         logger.warning("[redis-cache] Gagal simpan result_id=%s: %s", result_id, e)
